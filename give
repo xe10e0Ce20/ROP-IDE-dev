@@ -1,0 +1,641 @@
+main.js：
+// src/main.js
+
+// ----------------------------------------------------------------------
+// 步骤 1: 导入所有 CodeMirror 模块
+// ----------------------------------------------------------------------
+
+// 核心
+import { EditorView, lineNumbers, highlightActiveLineGutter, keymap } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
+
+// 语言与高亮 (重要)
+import { StreamLanguage, LanguageSupport, bracketMatching, indentOnInput } from '@codemirror/language';
+
+// 自动完成 (重要)
+import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
+
+// 纠错提示 (重要)
+import { linter, lintGutter } from '@codemirror/lint';
+
+// 基础功能
+// 注意: defaultKeymap, history, historyKeymap 应该从 @codemirror/commands 和 @codemirror/history 导入
+// 假设您已经安装了正确的包，这里修正导入路径以匹配 CodeMirror 6 的最新结构
+import { defaultKeymap } from '@codemirror/commands';
+import { history, historyKeymap } from '@codemirror/history';
+
+// 主题
+import { oneDark } from '@codemirror/theme-one-dark'; // 注意：在Vite中不需要 .js 后缀
+
+// ----------------------------------------------------------------------
+// 步骤 2: 【教学】如何编写自定义高亮
+// ----------------------------------------------------------------------
+const myCustomHighlight = StreamLanguage.define({
+    token: (stream) => {
+        // 规则 1: 以 $ 开头的 (如 $print)
+        if (stream.match(/^\$[a-zA-Z0-9_]+/)) {
+            return "keyword"; // CSS class: .cm-keyword (CodeMirror内置)
+        }
+        
+        // 规则 2: 以 @ 开头的 (如 @adr)
+        if (stream.match(/^@[a-zA-Z0-9_=]+/)) {
+            return "meta"; // CSS class: .cm-meta (CodeMirror内置)
+        }
+        
+        // 规则 3: 以 * 或 ! 开头的
+        if (stream.match(/^[*!][a-zA-Z0-9_]+/)) {
+            return "variableName"; // CSS class: .cm-variableName
+        }
+        
+        // 规则 4: 数字 (十六进制和十进制)
+        if (stream.match(/^0x[0-9a-fA-F]+/)) {
+            return "number";
+        }
+        if (stream.match(/^[0-9]+/)) {
+            return "number";
+        }
+        
+        // 规则 5: 字符串
+        if (stream.match(/^".*?"/)) {
+            return "string";
+        }
+        
+        // 规则 6: 注释 (假设以 ; 开头)
+        if (stream.match(/^;.*/)) {
+            return "comment";
+        }
+
+        // 跳过空白
+        if (stream.eatSpace()) {
+            return null;
+        }
+
+        // 匹配不到则前进一个字符
+        stream.next();
+        return null;
+    }
+});
+
+// ----------------------------------------------------------------------
+// 步骤 3: 【教学】如何编写自动提示
+// ----------------------------------------------------------------------
+const myCompletions = (context) => {
+    // 匹配光标前的触发词 (如 $pr, @of)
+    let word = context.matchBefore(/[$!@*][a-zA-Z0-9_=]*/);
+
+    if (!word || (word.from === word.to && !context.explicit)) {
+        return null;
+    }
+
+    let options = [];
+    const trigger = word.text[0]; // 获取触发符 $, @ 等
+
+    // --- [ 在这里定义您的提示词库 ] ---
+    const dollarSuggestions = ['$print', '$load', '$store', '$jump', '$add'];
+    const atSuggestions = ['@adr', '@offset=', '@data', '@include'];
+    const starSuggestions = ['*var1', '*temp', '*counter'];
+    const bangSuggestions = ['!label', '!loop_start', '!end'];
+    // --- [ 词库定义结束 ] ---
+
+    let sourceList = [];
+    if (trigger === '$') {
+        sourceList = dollarSuggestions;
+    } else if (trigger === '@') {
+        sourceList = atSuggestions;
+    } else if (trigger === '*') {
+        sourceList = starSuggestions;
+    } else if (trigger === '!') {
+        sourceList = bangSuggestions;
+    }
+    
+    // 过滤并排序 (这里使用简单的前缀匹配，已按相似度排序)
+    options = sourceList
+        .filter(s => s.startsWith(word.text))
+        .map(s => ({
+            label: s,
+            type: (trigger === '$' || trigger === '@') ? 'keyword' : 'variable'
+        }));
+
+    return {
+        from: word.from,
+        options: options
+    };
+};
+
+// ----------------------------------------------------------------------
+// 步骤 4: 【教学】如何编写纠错提示 (Linter)
+// ----------------------------------------------------------------------
+const myLinter = linter(view => {
+    let diagnostics = [];
+    const code = view.state.doc.toString();
+    const lines = code.split('\n');
+
+    lines.forEach((line, i) => {
+        const lineStartPos = view.state.doc.line(i + 1).from;
+        
+        // --- [ 在这里定义您的纠错规则 ] ---
+        
+        // 规则 1: 演示 - 查找 "ERROR" 字符串
+        let match = line.indexOf("ERROR");
+        if (match !== -1) {
+            diagnostics.push({
+                from: lineStartPos + match,
+                to: lineStartPos + match + 5,
+                severity: 'error',
+                message: '这是一个自定义错误：不应包含 "ERROR" 字符串。'
+            });
+        }
+        
+        // 规则 2: 演示 - 检查 $print 是否有带引号
+        if (line.trim().startsWith("$print") && !line.includes('"')) {
+            diagnostics.push({
+                from: lineStartPos + line.indexOf("$print"),
+                to: lineStartPos + line.length,
+                severity: 'warning',
+                message: '$print 指令可能需要一个字符串参数 (例如 "Hello")。'
+            });
+        }
+        
+        // 规则 3: 演示 - 检查 @adr 格式
+        let adrMatch = line.match(/@adr\s+([a-zA-Z0-9_]+)/);
+        if (adrMatch && adrMatch[1].length < 2) {
+            diagnostics.push({
+                from: lineStartPos + adrMatch.index,
+                to: lineStartPos + adrMatch.index + adrMatch[0].length,
+                severity: 'info',
+                message: '标签名 (@adr) 建议至少2个字符长。'
+            });
+        }
+        // --- [ 规则定义结束 ] ---
+    });
+
+    return diagnostics;
+});
+
+// ----------------------------------------------------------------------
+// 步骤 5: 初始化 CodeMirror 编辑器
+// ----------------------------------------------------------------------
+
+// 组合所有扩展
+const extensions = [
+    lineNumbers(),              // 行号
+    highlightActiveLineGutter(),// 高亮当前行号
+    history(),                  // 历史记录 (撤销/重做)
+    indentOnInput(),            // 自动缩进
+    bracketMatching(),          // 括号匹配
+    closeBrackets(),            // 自动关闭括号
+    
+    oneDark,                    // One Dark 主题 (会自动注入CSS)
+    
+    // 绑定所有按键
+    keymap.of([
+        ...closeBracketsKeymap,
+        ...defaultKeymap,
+        ...historyKeymap,
+        ...completionKeymap
+    ]),
+    
+    // --- [ 应用您的自定义功能 ] ---
+    new LanguageSupport(myCustomHighlight),     // 1. 应用自定义高亮
+    autocompletion({ override: [myCompletions] }), // 2. 应用自定义自动提示
+    myLinter,                                   // 3. 应用自定义纠错
+    lintGutter()                                // 4. 显示纠错标记
+    // --- [ 自定义功能结束 ] ---
+];
+
+// 初始代码
+const initialDoc = `; 欢迎使用您的自定义IDE
+;
+; - 使用 $print, @adr, *var, !label 触发提示
+; - 尝试输入 $print (不带引号) 触发警告
+; - 尝试输入 ERROR 触发错误
+;
+@adr D000
+
+$print "Hello World!"
+`;
+
+// 创建编辑器实例
+const editorView = new EditorView({
+    state: EditorState.create({
+        doc: initialDoc,
+        extensions: extensions
+    }),
+    parent: document.getElementById("editor-container")
+});
+
+// ----------------------------------------------------------------------
+// 步骤 6: 连接所有 UI 按钮和事件
+// ----------------------------------------------------------------------
+
+// 状态变量
+window.libraryFiles = {}; // { "filename.lib": "content..." }
+let lastBytecode = ""; // 可以保持局部变量
+
+// 获取所有DOM元素
+const importBtn = document.getElementById('import-btn');
+const fileImporter = document.getElementById('file-importer');
+const compileBtn = document.getElementById('compile-btn');
+const exportSourceBtn = document.getElementById('export-source-btn');
+const exportBytecodeBtn = document.getElementById('export-bytecode-btn');
+
+const tabBytecodeBtn = document.getElementById('tab-bytecode-btn');
+const tabLibraryBtn = document.getElementById('tab-library-btn');
+const bytecodeView = document.getElementById('bytecode-view');
+const libraryViewer = document.getElementById('library-viewer');
+const librarySelector = document.getElementById('library-selector');
+const libraryContentDisplay = document.getElementById('library-content-display');
+
+// --- 事件监听 ---
+
+// 1. 导入库文件
+// ... (在文件顶部定义了 DOM 元素变量后) ...
+
+// 1. 导入库文件
+importBtn.onclick = () => {
+    console.log("DEBUG: 导入按钮被点击，尝试触发文件选择器...");
+    fileImporter.click();
+};
+
+fileImporter.onchange = (e) => {
+    console.log("DEBUG: 文件选择事件触发！");
+
+    libraryFiles = {}; // 清空旧文件
+    const files = e.target.files;
+    
+    if (files.length === 0) {
+        console.warn("DEBUG: 没有选择任何文件。");
+        return;
+    }
+
+    console.log(`DEBUG: 选择了 ${files.length} 个文件，开始异步读取...`);
+    
+    let filesLoaded = 0;
+    
+    Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        
+        reader.onerror = (err) => {
+            console.error(`ERROR: 读取文件 ${file.name} 失败`, err);
+        };
+
+        reader.onload = (event) => {
+            window.libraryFiles[file.name] = event.target.result; 
+            filesLoaded++;
+            
+            if (filesLoaded === files.length) {
+                alert(`成功导入 ${files.length} 个库文件。`);
+                
+                // 确保这里调用了更新函数
+                updateLibraryViewer(); 
+                
+                // 确保这里切换了标签页
+                document.getElementById('tab-library-btn').click();
+            }
+        };
+        
+        // 关键：读取为文本
+        reader.readAsText(file);
+    });
+    
+    // 重置 file input，以便下次可以选择同名文件
+    fileImporter.value = '';
+};
+
+// ... (其他函数和代码保持不变) ...
+
+// 2. 点击编译
+compileBtn.onclick = async () => {
+    const sourceCode = editorView.state.doc.toString();
+    const addr1 = document.getElementById('addr1').value;
+    const addr2 = document.getElementById('addr2').value;
+
+    bytecodeView.textContent = '正在编译中... (PyScript 正在启动...)';
+    tabBytecodeBtn.click(); // 切换到字节码视图
+    
+    try {
+        // 调用 PyScript 中暴露的全局函数 (window.pyProcessCode 实际上就是 js.globalThis.pyProcessCode)
+        // 注意：PyScript 启动需要时间，首次调用可能等待较久
+        const result = await window.pyProcessCode(sourceCode, libraryFiles, addr1, addr2);
+        lastBytecode = result;
+        bytecodeView.textContent = result;
+    } catch (error) {
+        bytecodeView.textContent = `JavaScript 调用 Python 失败: ${error.toString()}`;
+    }
+};
+
+// 3. 切换标签页
+tabBytecodeBtn.onclick = () => {
+    bytecodeView.style.display = 'block';
+    libraryViewer.style.display = 'none';
+    tabBytecodeBtn.classList.add('active');
+    tabLibraryBtn.classList.remove('active');
+};
+
+tabLibraryBtn.onclick = () => {
+    bytecodeView.style.display = 'none';
+    libraryViewer.style.display = 'block';
+    tabBytecodeBtn.classList.remove('active');
+    tabLibraryBtn.classList.add('active');
+};
+
+// 4. 更新库文件下拉框
+function updateLibraryViewer() {
+    // 确保这里引用的是全局的 window.libraryFiles
+    const files = window.libraryFiles; 
+    
+    // 获取下拉框元素
+    const librarySelector = document.getElementById('library-selector');
+    if (!librarySelector) return; // 安全检查
+
+    librarySelector.innerHTML = ''; // 清空旧选项
+    
+    // 检查是否有文件
+    if (Object.keys(files).length === 0) {
+        const option = document.createElement('option');
+        option.value = "";
+        option.textContent = "-- 请先导入库文件 --";
+        librarySelector.appendChild(option);
+        // 同时清空内容显示区
+        document.getElementById('library-content-display').textContent = ''; 
+        return;
+    }
+    
+    // 遍历 files (即 window.libraryFiles) 对象的键 (文件名)
+    for (const filename in files) {
+        const option = document.createElement('option');
+        option.value = filename;
+        option.textContent = filename;
+        librarySelector.appendChild(option); // 将文件名添加到下拉框中
+    }
+    
+    // 自动选择并显示第一个文件的内容
+    librarySelector.selectedIndex = 0;
+    // 手动触发 change 事件，以便显示第一个文件的内容
+    librarySelector.dispatchEvent(new Event('change')); 
+}
+
+// 检查 librarySelector.onchange 事件，确保它也能读取 window.libraryFiles
+librarySelector.onchange = () => {
+    const librarySelector = document.getElementById('library-selector');
+    const libraryContentDisplay = document.getElementById('library-content-display');
+    const selectedFile = librarySelector.value; // 获取用户选择的文件名（即键）
+    
+    // 确保从全局对象中读取内容
+    if (selectedFile && window.libraryFiles[selectedFile]) {
+        libraryContentDisplay.textContent = window.libraryFiles[selectedFile];
+    } else {
+        libraryContentDisplay.textContent = '';
+    }
+};
+
+// 6. 导出功能
+function downloadFile(filename, content) {
+    const element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
+    element.setAttribute('download', filename);
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+}
+
+exportSourceBtn.onclick = () => {
+    const sourceCode = editorView.state.doc.toString();
+    downloadFile('source.txt', sourceCode);
+};
+
+exportBytecodeBtn.onclick = () => {
+    if (!lastBytecode) {
+        alert('请先编译代码！');
+        return;
+    }
+    downloadFile('bytecode.txt', lastBytecode);
+};
+
+
+index.html：
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的网页版IDE</title>
+
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
+
+    <style>
+        /* 基础布局 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #21252b; /* 深色背景 */
+        }
+        
+        /* 工具栏 */
+        .toolbar {
+            padding: 10px;
+            background: #3a3f4b;
+            border-bottom: 1px solid #4a4f5a;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #ccc;
+        }
+        .toolbar button {
+            padding: 5px 10px;
+            background-color: #528bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .toolbar button:hover { background-color: #699eff; }
+        .toolbar input[type="text"] {
+            width: 60px;
+            background: #282c34;
+            color: #ccc;
+            border: 1px solid #4a4f5a;
+            border-radius: 4px;
+            padding: 5px;
+        }
+
+        /* 主容器 (左右布局) */
+        .main-container {
+            display: flex;
+            flex: 1; /* 占据剩余所有空间 */
+            overflow: hidden; /* 防止溢出 */
+        }
+
+        /* 左侧：代码区 */
+        #editor-container {
+            flex: 1;
+            height: 100%;
+            overflow: auto;
+        }
+        /* CodeMirror 必须有一个明确的高度才能显示 */
+        .cm-editor {
+            height: 100%;
+            font-size: 14px;
+        }
+
+        /* 右侧：查看区 */
+        .output-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #282c34;
+            border-left: 2px solid #4a4f5a;
+        }
+        .output-tabs {
+            padding: 5px 10px;
+            background: #3a3f4b;
+        }
+        .output-tabs button {
+            padding: 8px 12px;
+            border: none;
+            background: none;
+            color: #999;
+            cursor: pointer;
+        }
+        .output-tabs button.active {
+            color: white;
+            border-bottom: 2px solid #528bff;
+        }
+        .output-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            color: #abb2bf;
+        }
+        #library-viewer {
+            padding: 10px;
+        }
+        #library-viewer select {
+            width: 100%;
+            padding: 5px;
+            background: #3a3f4b;
+            color: white;
+            border: 1px solid #4a4f5a;
+            border-radius: 4px;
+        }
+        #library-content-display {
+            margin-top: 10px;
+            background: #21252b;
+            padding: 10px;
+            border-radius: 4px;
+            min-height: 200px;
+        }
+        
+        /* 默认隐藏非活动标签页 */
+        #bytecode-view { display: block; }
+        #library-viewer { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <input type="file" id="file-importer" multiple style="display: none;">
+        <button id="import-btn">导入库文件</button>
+        <button id="compile-btn">编译</button>
+        <button id="export-source-btn">导出源代码</button>
+        <button id="export-bytecode-btn">导出字节码</button>
+        <span>地址1: <input type="text" id="addr1" value="D000"></span>
+        <span>地址2: <input type="text" id="addr2" value="E000"></span>
+    </div>
+
+    <div class="main-container">
+        <div id="editor-container"></div>
+
+        <div class="output-container">
+            <div class="output-tabs">
+                <button id="tab-bytecode-btn" class="active">字节码</button>
+                <button id="tab-library-btn">库文件</button>
+            </div>
+            
+            <pre id="bytecode-view" class="output-content">编译结果将显示在此处...</pre>
+            
+            <div id="library-viewer" class="output-content">
+                <select id="library-selector">
+                    <option value="">-- 请先导入库文件 --</option>
+                </select>
+                <pre id="library-content-display"></pre>
+            </div>
+        </div>
+    </div>
+
+    <py-config>
+        packages = []
+    </py-config>
+
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+    <py-script>
+        import js
+        from js import to_py
+        import json
+
+        def compile_to_bytecode(source_code, libraries_js_proxy, addr1, addr2):
+            """
+            这是您需要编写的核心函数。
+            它接收JS传来的源代码、库文件(JS Proxy)和地址。
+            """
+            try:
+                # 1. 将JS对象转换为Python字典
+                libraries_dict = to_py(libraries_js_proxy)
+                
+                # -----------------------------------------------
+                # --- [ 在这里替换为您自己的字节码转换逻辑 ] ---
+                # -----------------------------------------------
+                
+                # 这是一个演示逻辑，展示了如何使用传入的数据
+                js.console.log(f"Python: 正在编译, Addr1={addr1}, Addr2={addr2}")
+                js.console.log(f"Python: 收到 {len(libraries_dict)} 个库文件: {list(libraries_dict.keys())}")
+                
+                output_lines = []
+                output_lines.append(f"--- 编译开始 (地址: {addr1}, {addr2}) ---")
+                
+                # 演示：处理库文件
+                if libraries_dict:
+                    output_lines.append("\n[已加载库文件:]")
+                    for filename, content in libraries_dict.items():
+                        output_lines.append(f"  - {filename} ({len(content)} 字节)")
+                
+                output_lines.append("\n[源代码:]")
+                output_lines.append(source_code)
+                
+                output_lines.append("\n[模拟字节码输出:]")
+                try:
+                    current_addr = int(addr1, 16)
+                    for i, line in enumerate(source_code.split('\n')):
+                        line = line.strip()
+                        if line and not line.startswith(';'): # 忽略空行和注释
+                            output_lines.append(f"{hex(current_addr)[2:].upper().zfill(4)}: MOCK_OP_{i} {line.replace(' ', ',')}")
+                            current_addr += 4 # 假设每条指令4字节
+                except ValueError:
+                    output_lines.append("错误: 地址格式不正确 (必须是十六进制, 如 D000)。")
+
+                
+                # -----------------------------------------------
+                # --- [ 您的逻辑结束 ] ---
+                # -----------------------------------------------
+                
+                return "\n".join(output_lines)
+
+            except Exception as e:
+                # 将Python错误返回给JS
+                js.console.error(f"Python 编译时出错: {e}")
+                return f"PYTHON COMPILE ERROR:\n{e}"
+
+        # 2. 将Python函数暴露给JS，以便JS的 "编译" 按钮可以调用它
+        js.globalThis.pyProcessCode = compile_to_bytecode
+    </py-script>
+
+    <script type="module" src="/src/main.js"></script> 
+</body>
+</html>

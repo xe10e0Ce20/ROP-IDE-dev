@@ -1,0 +1,48 @@
+{
+  "name": "rop-ide",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "copy-pyscript": "ncp node_modules/pyscript/dist public/vendor/pyscript && ncp node_modules/pyodide public/vendor/pyodide",
+    "dev": "npm run copy-pyscript && vite",
+    "build": "npm run copy-pyscript && vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xe10e0Ce20/ROP-IDE.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/xe10e0Ce20/ROP-IDE/issues"
+  },
+  "homepage": "https://github.com/xe10e0Ce20/ROP-IDE#readme",
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.19.1",
+    "@codemirror/commands": "^6.10.0",
+    "@codemirror/history": "^0.19.2",
+    "@codemirror/language": "^6.11.3",
+    "@codemirror/lint": "^6.9.1",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "@codemirror/view": "^6.38.6",
+    "@pyscript/core": "^0.7.10",
+    "pyscript": "^1.0.6",
+    "vite": "^7.1.12"
+  },
+  "overrides": {
+    "@codemirror/state": "$@codemirror/state",
+    "@codemirror/view": "$@codemirror/view",
+    "@codemirror/language": "$@codemirror/language",
+    "@codemirror/commands": "$@codemirror/commands",
+    "@codemirror/history": "$@codemirror/history",
+    "@codemirror/theme-one-dark": "$@codemirror/theme-one-dark"
+  },
+  "devDependencies": {
+    "ncp": "^2.0.0"
+  }
+}
