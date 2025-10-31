@@ -105,10 +105,43 @@ function assignCompletionType(prefix) {
 }
 
 
+// src/main.js (在工具函数部分，例如 debounce 之后)
+
+// ----------------------------------------------------------------------
+// 工具函数：提取 Import 语句
+// ----------------------------------------------------------------------
+/**
+ * 从代码顶部（直到第一个 @block. 或代码结束）提取所有 import 的库文件名。
+ * @param {string} sourceCode - 当前编辑器的源代码
+ * @returns {string[]} 提取到的库文件名列表
+ */
+function extractImports(sourceCode) {
+    const lines = sourceCode.split('\n');
+    const importedFiles = [];
+    const importRegex = /^\s*import\s+([\w\d.-_]+)\s*$/i; // 匹配 import filename
+    const blockStartRegex = /^\s*@block\./i; // 匹配 @block. 开头
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (blockStartRegex.test(trimmedLine)) {
+            // 遇到 @block. 停止解析 import
+            break; 
+        }
+
+        const match = trimmedLine.match(importRegex);
+        if (match && match[1]) {
+            // 将匹配到的文件名（去除 import 后的部分）加入列表
+            importedFiles.push(match[1].trim());
+        }
+    }
+    return importedFiles;
+}
+
+
 // ----------------------------------------------------------------------
 // 【重点函数】解析源代码和库文件，构建 CodeMirror 自动完成词库
 // ----------------------------------------------------------------------
-function buildCompletionWords(sourceCode, libraryFiles = {}) {
+function buildCompletionWords(sourceCode, libraryFiles = {}, importedFileNames = []) {
     console.log("DEBUG: buildCompletionWords 开始执行...");
     const newWords = {};
     
@@ -123,9 +156,13 @@ function buildCompletionWords(sourceCode, libraryFiles = {}) {
     };
     Object.assign(newWords, staticWords);
 
+    const librarySources = importedFileNames
+        .filter(name => libraryFiles[name]) // 只保留 window.libraryFiles 中实际存在的
+        .map(name => ({ name: name, content: libraryFiles[name], isLibrary: true }));
+        
     const sources = [
         { name: "Current Code", content: sourceCode || "", isLibrary: false },
-        ...Object.keys(libraryFiles).map(name => ({ name: name, content: libraryFiles[name], isLibrary: true }))
+        ...librarySources // 仅包含通过 import 语句导入的库
     ];
     
     const commentStart = '//'; 
@@ -211,9 +248,9 @@ function buildCompletionWords(sourceCode, libraryFiles = {}) {
 }
 
 // 防抖版本的词库构建函数
-const debouncedBuildCompletionWords = debounce((sourceCode, libraryFiles) => {
-    buildCompletionWords(sourceCode, libraryFiles);
-}, 300); 
+const debouncedBuildCompletionWords = debounce((sourceCode, libraryFiles, importedFileNames) => {
+    buildCompletionWords(sourceCode, libraryFiles, importedFileNames);
+}, 300);
 
 // ----------------------------------------------------------------------
 // 步骤 2: 自定义高亮 (保持不变，因为高亮和自动提示类型是分开的)
@@ -243,7 +280,7 @@ const myCompletions = (context) => {
     if (!window.completionWords) return null;
     
     // 匹配 $!@* 开头，后面跟着字母数字、下划线、以及 ?, &, . 等符号，直到遇到空格或 ;
-    let word = context.matchBefore(/[$!@*#a-zA-Z0-9_][^ \t\n;]*/);
+    let word = context.matchBefore(/[$!@*#|a-zA-Z0-9_][^ \t\n;]*/);
 
     if (!word || (word.from === word.to && !context.explicit)) {
         if (!context.explicit) return null;
@@ -447,7 +484,12 @@ function hexStringToUint8Array(hexString) {
 const liveUpdateExtension = EditorView.updateListener.of((update) => {
     if (update.docChanged) {
         const currentCode = update.state.doc.toString();
-        debouncedBuildCompletionWords(currentCode, window.libraryFiles);
+        
+        // 【新增/修改】提取 import 列表
+        const importedFiles = extractImports(currentCode); 
+        
+        // 调用防抖函数，传入提取的列表
+        debouncedBuildCompletionWords(currentCode, window.libraryFiles, importedFiles);
     }
 });
 
@@ -480,6 +522,7 @@ const initialDoc = `//欢迎使用ROP-IDE
 //别忘了先用import导入库文件
 `;
 
+
 // 创建编辑器实例
 const editorView = new EditorView({
     state: EditorState.create({
@@ -490,7 +533,9 @@ const editorView = new EditorView({
 });
 
 // 初始运行一次词库构建
-buildCompletionWords(editorView.state.doc.toString(), window.libraryFiles);
+const initialCode = editorView.state.doc.toString();
+const initialImports = extractImports(initialCode); // 提取初始代码中的 import
+buildCompletionWords(initialCode, window.libraryFiles, initialImports);
 
 // ----------------------------------------------------------------------
 // 步骤 6: 连接所有 UI 按钮和事件
@@ -554,22 +599,41 @@ function updateLibraryViewer() {
 
 // 更新字节码查看器函数 (逻辑不变, 确认 DOM 引用)
 function updateBytecodeViewer() {
-    const blocks = window.bytecodeBlocks;
+    const blocks = window.bytecodeBlocks || {}; // 确保初始化为空对象
     const selector = document.getElementById('bytecode-selector');
-    const contentDisplay = document.getElementById('bytecode-content-display'); // 这个保持不变
+    const contentDisplay = document.getElementById('bytecode-content-display'); 
     
-    if (!selector) { console.warn("Bytecode selector not found."); return; }
+    // ... (DOM 检查) ...
     
     selector.innerHTML = ''; 
-    if (Object.keys(blocks).length === 0) { /* ... 处理空列表 ... */ return; }
     
-    for (const blockName in blocks) { /* ... 填充下拉框 ... */ }
+    if (Object.keys(blocks).length === 0) {
+        // 当 blocks 确实为空时，才显示此信息并返回
+        const option = document.createElement('option');
+        option.value = "";
+        option.textContent = "-- 编译结果为空 --";
+        selector.appendChild(option);
+        if (contentDisplay) contentDisplay.textContent = '编译结果为空。';
+        return; // <-- 只有在空的时候才返回！
+    } 
     
+    // ------------------------------------------------------------------
+    // 填充下拉框：如果走到这里，说明 blocks 不为空
+    // ------------------------------------------------------------------
+    for (const blockName in blocks) { 
+        const option = document.createElement('option');
+        option.value = blockName;
+        option.textContent = blockName;
+        selector.appendChild(option);
+    }
+    
+    // ------------------------------------------------------------------
+    // 显示第一个块的内容
+    // ------------------------------------------------------------------
     if (selector.options.length > 0) { 
         selector.selectedIndex = 0; 
+        // 强制触发 change 事件，让 onchange 监听器调用 formatHexView()
         selector.dispatchEvent(new Event('change')); 
-    } else { 
-        if (contentDisplay) contentDisplay.textContent = '编译结果为空。'; 
     }
 }
 
@@ -605,31 +669,38 @@ if (importBtn && fileImporter) {
 } 
 
 // 2. 点击编译
+// 2. 点击编译 (核心修改)
 if (compileBtn) {
     compileBtn.onclick = async () => {
         // ... (获取 sourceCode, addr1, addr2 不变) ...
         const sourceCode = editorView.state.doc.toString();
         const addr1Input = document.getElementById('addr1'); const addr2Input = document.getElementById('addr2');
-        const addr1 = addr1Input ? addr1Input.value : 'D700'; // 默认地址
-        const addr2 = addr2Input ? addr2Input.value : 'E9E0'; // 默认地址
 
         // 更新 UI 提示
         if(bytecodeSelector) bytecodeSelector.innerHTML = '<option>编译中...</option>';
         if(bytecodeContentDisplay) bytecodeContentDisplay.textContent = '编译中...';
-        if(tabBytecodeBtn) tabBytecodeBtn.click(); 
+        if(tabBytecodeBtn) tabBytecodeBtn.click(); // 切换到字节码视图
 
         buildCompletionWords(sourceCode, window.libraryFiles); 
         
         try {
             if (typeof window.pyProcessCode === 'function') {
-                const resultProxy = await window.pyProcessCode(sourceCode, window.libraryFiles); // 假设 Python 只返回字典
                 
-                // 【修复】确保 toJs 正确转换 Map/Dict
+                // 【修复 1】确保传递所有参数 (addr1, addr2)
+                const resultProxy = await window.pyProcessCode(sourceCode, window.libraryFiles);
+                
+                // 【修复 2】确保 toJs 正确转换 PyProxy
+                // 使用 dict_converter 将 Python 字典 (或 JS Map 代理) 转为标准 JS 对象
                 const resultObject = resultProxy.toJs({ dict_converter: Object.fromEntries }); 
-                console.log("DEBUG: Python 返回的字节码字典:", resultObject); // 调试输出
+                
+                // 调试输出转换后的对象
+                console.log("DEBUG: Python 返回的字节码字典 (已转换):", resultObject); 
 
                 window.bytecodeBlocks = resultObject; 
-                updateBytecodeViewer(); // 更新下拉框，这将触发 onchange 来显示内容
+                
+                // 【重要】调用 updateBytecodeViewer() 来填充下拉框
+                // 这应该会自动触发 onchange 事件 (通过 dispatchEvent) 来显示第一个块的内容
+                updateBytecodeViewer(); 
 
             } else { throw new Error("PyScript 函数 'pyProcessCode' 未准备好。"); }
         } catch (error) {
@@ -742,62 +813,71 @@ if(exportBytecodeBtn) {
     }; 
 }
 
-// 【新增】面板拖动逻辑
 const resizer = document.getElementById('dragMe');
 const leftSide = document.getElementById('editor-container');
-const rightSide = document.querySelector('.output-container'); // 使用类选择器更健壮
+const rightSide = document.querySelector('.output-container'); // 使用类选择器
 
-let x = 0;
-let leftWidth = 0;
+if (resizer && leftSide && rightSide) {
+    let x = 0;
+    let leftWidth = 0;
 
-const mouseDownHandler = function (e) {
-    // 获取初始鼠标位置和左侧面板宽度
-    x = e.clientX;
-    leftWidth = leftSide.getBoundingClientRect().width;
+    const mouseDownHandler = function (e) {
+        // 阻止默认的 mousedown 行为 (例如文本选择)
+        e.preventDefault();
 
-    // 添加全局事件监听器
-    document.addEventListener('mousemove', mouseMoveHandler);
-    document.addEventListener('mouseup', mouseUpHandler);
-    
-    // 添加样式表示正在拖动 (可选)
-    resizer.classList.add('resizing');
-    document.body.style.cursor = 'col-resize'; // 更改鼠标样式
-    document.body.style.userSelect = 'none'; // 禁止拖动时选中文本
-};
+        // 获取初始鼠标位置和左侧面板宽度
+        x = e.clientX;
+        leftWidth = leftSide.getBoundingClientRect().width;
 
-const mouseMoveHandler = function (e) {
-    // 计算鼠标移动距离
-    const dx = e.clientX - x;
+        // 添加全局事件监听器
+        document.addEventListener('mousemove', mouseMoveHandler);
+        document.addEventListener('mouseup', mouseUpHandler);
+        
+        // 添加样式表示正在拖动 (可选)
+        resizer.classList.add('resizing');
+        document.body.style.cursor = 'col-resize'; // 更改鼠标样式
+        document.body.style.userSelect = 'none'; // 禁止拖动时选中文本
+    };
 
-    // 计算新的左侧宽度
-    const newLeftWidth = ((leftWidth + dx) * 100) / resizer.parentNode.getBoundingClientRect().width;
-    
-    // 设置左右面板的 flex-basis
-    // 添加边界检查，防止面板过小或过大 (例如，最小 10%)
-    const minWidthPercent = 10;
-    const maxWidthPercent = 90;
-    
-    if (newLeftWidth > minWidthPercent && newLeftWidth < maxWidthPercent) {
-        leftSide.style.flexBasis = `${newLeftWidth}%`;
-        // 右侧宽度自动调整 (flex: 1) 或手动设置
-        rightSide.style.flexBasis = `${100 - newLeftWidth}%`; 
-    }
-};
+    const mouseMoveHandler = function (e) {
+        // 计算鼠标移动距离
+        const dx = e.clientX - x;
 
-const mouseUpHandler = function () {
-    // 移除全局事件监听器
-    document.removeEventListener('mousemove', mouseMoveHandler);
-    document.removeEventListener('mouseup', mouseUpHandler);
-    
-    // 移除拖动样式 (可选)
-    resizer.classList.remove('resizing');
-    document.body.style.cursor = 'default';
-    document.body.style.removeProperty('user-select');
-};
+        // 计算新的左侧宽度
+        const newLeftWidth = leftWidth + dx;
+        
+        // 获取父容器总宽度
+        const containerWidth = resizer.parentNode.getBoundingClientRect().width;
 
-// 绑定 mousedown 事件到拖动条
-if (resizer) {
+        // 转换为百分比
+        const newLeftWidthPercent = (newLeftWidth / containerWidth) * 100;
+        
+        // 设置左右面板的 flex-basis
+        // 添加边界检查，防止面板过小或过大 (例如，最小 15%)
+        const minWidthPercent = 15;
+        const maxWidthPercent = 85;
+        
+        if (newLeftWidthPercent > minWidthPercent && newLeftWidthPercent < maxWidthPercent) {
+            leftSide.style.flexBasis = `${newLeftWidthPercent}%`;
+            // 右侧宽度自动调整 (flex: 1) 或手动设置
+            rightSide.style.flexBasis = `${100 - newLeftWidthPercent}%`; 
+        }
+    };
+
+    const mouseUpHandler = function () {
+        // 移除全局事件监听器
+        document.removeEventListener('mousemove', mouseMoveHandler);
+        document.removeEventListener('mouseup', mouseUpHandler);
+        
+        // 移除拖动样式 (可选)
+        resizer.classList.remove('resizing');
+        document.body.style.cursor = 'default';
+        document.body.style.removeProperty('user-select');
+    };
+
+    // 绑定 mousedown 事件到拖动条
     resizer.addEventListener('mousedown', mouseDownHandler);
-}
 
-console.log("DEBUG: main.js 最终版本执行完毕。");
+} else {
+    console.warn("拖动条 (#dragMe) 或侧边栏 (#editor-container / .output-container) 未找到。");
+}
