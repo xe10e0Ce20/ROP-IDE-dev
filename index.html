@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ROP-IDE</title>
 
-    <link rel="stylesheet" href="/vendor/pyscript/core.css" />
-    <script type="module" src="/vendor/pyscript/core.js"></script>
+    <link rel="stylesheet" href="/vendor/pyscript/dist/core.css" />
+    <script type="module" src="/vendor/pyscript/dist/core.js"></script>
 
     <style>
         /* 基础布局 */
@@ -180,20 +180,25 @@
         <div id="editor-container"></div>
 
         <div class="output-container">
-            <div class="output-tabs">
-                <button id="tab-bytecode-btn" class="active">字节码</button>
-                <button id="tab-library-btn">库文件</button>
-            </div>
-            
-            <pre id="bytecode-view" class="output-content">编译结果将显示在此处...</pre>
-            
-            <div id="library-viewer" class="output-content">
-                <select id="library-selector">
-                    <option value="">-- 请先导入库文件 --</option>
-                </select>
-                <pre id="library-content-display"></pre>
-            </div>
+        <div class="output-tabs">
+            <button id="tab-bytecode-btn" class="active">字节码</button>
+            <button id="tab-library-btn">库文件</button>
         </div>
+        
+        <div id="bytecode-view" class="output-content">
+            <select id="bytecode-selector">
+                <option value="">-- 请先编译 --</option>
+            </select>
+            <pre id="bytecode-content-display">编译结果将显示在此处...</pre>
+        </div>
+        
+        <div id="library-viewer" class="output-content">
+            <select id="library-selector">
+                <option value="">-- 请先导入库文件 --</option>
+            </select>
+            <pre id="library-content-display"></pre>
+        </div>
+    </div>
     </div>
 
     <py-config>
@@ -210,7 +215,7 @@
         from typing import Any, Dict, cast
         import uuid
 
-        def compile_to_bytecode(source_code, libraries_js_proxy, addr1, addr2):
+        def compile_to_bytecode(source_code, libraries_js_proxy):
             """
             这是您需要编写的核心函数。
             它接收JS传来的源代码、库文件(JS Proxy)和地址。
@@ -629,6 +634,7 @@
                     HALF_BYTE: /[0-9a-fA-F]/
                     hex: HEX_DATA+
                     ANY_STRING: /[^,)]+/
+                    
                     LABEL_CALL: /#[a-zA-Z_][a-zA-Z0-9_]*/
                     LABEL_CALL_RAW: /##[a-zA-Z_][a-zA-Z0-9_]*/
                     HEX_DATA: /[0-9a-fA-FxX]{2}/

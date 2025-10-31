@@ -3,13 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-"scripts": {
-  "copy:pyscript": "shx mkdir -p public/vendor/pyscript public/vendor/pyodide && shx cp -R node_modules/@pyscript/core/dist public/vendor/pyscript && shx cp -R node_modules/pyodide public/vendor/pyodide",
-  
-  "dev": "npm run copy:pyscript && vite",
-  "build": "npm run copy:pyscript && vite build",
-  "preview": "vite preview"
-},
+  "scripts": {
+    "copy:pyscript": "shx mkdir -p public/vendor/pyscript public/vendor/pyodide && shx cp -R node_modules/@pyscript/core/dist public/vendor/pyscript && shx cp -R node_modules/pyodide public/vendor/pyodide",
+    "dev": "npm run copy:pyscript && vite",
+    "build": "npm run copy:pyscript && vite build",
+    "preview": "vite preview"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/xe10e0Ce20/ROP-IDE.git"
@@ -31,9 +30,6 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/theme-one-dark": "^6.1.3",
     "@codemirror/view": "^6.38.6",
-    "@pyscript/core": "^0.7.10",
-    "pyodide": "^0.29.0",
-    "pyscript": "^1.0.6",
     "vite": "^7.1.12"
   },
   "overrides": {
@@ -45,7 +41,9 @@
     "@codemirror/theme-one-dark": "$@codemirror/theme-one-dark"
   },
   "devDependencies": {
+    "@pyscript/core": "^0.2.1",
     "ncp": "^2.0.0",
+    "pyodide": "^0.23.4",
     "shx": "^0.4.0"
   }
 }

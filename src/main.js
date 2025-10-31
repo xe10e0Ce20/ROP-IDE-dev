@@ -113,7 +113,14 @@ function buildCompletionWords(sourceCode, libraryFiles = {}) {
     const newWords = {};
     
     // --- 静态词汇 (保持不变) ---
-    const staticWords = { /* ... 保持不变 ... */ };
+    const staticWords = {
+        '@x=': { label: '@x=', detail: '定义x占位符', type: assignCompletionType('@') },
+        '@adr.': { label: '@adr.', detail: '定义地址标签', type: assignCompletionType('@') },
+        '@block.': { label: '@block.', detail: '开始一个代码块', type: assignCompletionType('@') },
+        '@blockend': { label: '@blockend', detail: '结束代码块', type: assignCompletionType('@') },
+        '@offset=': { label: '@offset=', detail: '定义内存偏移量', type: assignCompletionType('@') },
+        '@overwrite': { label: '@overwrite', detail: '覆写', type: assignCompletionType('@') }
+    };
     Object.assign(newWords, staticWords);
 
     const sources = [
@@ -287,9 +294,6 @@ const myCompletions = (context) => {
     };
 };
 
-// src/main.js - 步骤 4: 纠错提示 (Linter)
-
-// src/main.js - 步骤 4: 纠错提示 (Linter)
 
 // src/main.js - 步骤 4: 纠错提示 (Linter)
 
@@ -492,16 +496,22 @@ buildCompletionWords(editorView.state.doc.toString(), window.libraryFiles);
 // 步骤 6: 连接所有 UI 按钮和事件
 // ----------------------------------------------------------------------
 
-// DOM 元素获取
 const importBtn = document.getElementById('import-btn');
 const fileImporter = document.getElementById('file-importer');
 const compileBtn = document.getElementById('compile-btn');
 const exportSourceBtn = document.getElementById('export-source-btn');
 const exportBytecodeBtn = document.getElementById('export-bytecode-btn');
+
 const tabBytecodeBtn = document.getElementById('tab-bytecode-btn');
 const tabLibraryBtn = document.getElementById('tab-library-btn');
-const bytecodeView = document.getElementById('bytecode-view');
-const libraryViewer = document.getElementById('library-viewer');
+const bytecodeView = document.getElementById('bytecode-view');        // 指向包含 select 和 pre 的 div
+const libraryViewer = document.getElementById('library-viewer');      // 指向包含 select 和 pre 的 div
+
+// 字节码视图元素
+const bytecodeSelector = document.getElementById('bytecode-selector'); // <-- 新增
+const bytecodeContentDisplay = document.getElementById('bytecode-content-display'); // <-- 新增
+
+// 库文件视图元素
 const librarySelector = document.getElementById('library-selector');
 const libraryContentDisplay = document.getElementById('library-content-display');
 
