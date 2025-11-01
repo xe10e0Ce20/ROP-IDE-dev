@@ -1,5 +1,20 @@
 // src/main.js
 
+
+// main.js (必须在所有 PyScript 逻辑之前执行)
+if ('serviceWorker' in navigator) {
+    // 使用 load 事件确保在页面完全加载前尝试注册
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(registration => {
+                console.log('Service Worker 注册成功，作用域: ', registration.scope);
+            })
+            .catch(error => {
+                console.error('Service Worker 注册失败: ', error);
+            });
+    });
+}
+
 // ----------------------------------------------------------------------
 // 步骤 1: 导入所有 CodeMirror 模块
 // ----------------------------------------------------------------------
@@ -30,6 +45,51 @@ import { oneDark } from '@codemirror/theme-one-dark';
 window.libraryFiles = window.libraryFiles || {};
 window.completionWords = window.completionWords || {};
 let lastBytecode = "";
+
+const INITIAL_LIBRARIES = [
+    // 假设您的预置库文件放在 /vendor/libraries/ 目录下
+    // 文件名将用作 import 语句中的名称和 libraryFiles 字典的键
+    { name: 'basic_rop', path: '/vendor/libraries/basic_rop.txt' },
+    { name: 'crypto_util', path: '/vendor/libraries/crypto_util.txt' },
+    // 您可以根据需要添加更多库文件
+];
+
+// ----------------------------------------------------------------------
+// 【新增函数】预加载初始库文件
+// ----------------------------------------------------------------------
+async function loadInitialLibraries() {
+    console.log("DEBUG: loadInitialLibraries 开始执行...");
+    
+    const fetchPromises = INITIAL_LIBRARIES.map(lib => 
+        fetch(lib.path)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`无法加载库文件 ${lib.name} (${response.status})`);
+                }
+                return response.text();
+            })
+            .then(content => {
+                window.libraryFiles[lib.name] = content;
+                console.log(`DEBUG: 成功预加载库文件: ${lib.name}`);
+            })
+            .catch(error => {
+                console.error(error.message);
+                // 即使失败，也继续处理其他文件
+            })
+    );
+
+    // 等待所有文件加载完毕
+    await Promise.all(fetchPromises);
+    
+    console.log("DEBUG: loadInitialLibraries 完成。");
+
+    // 加载完成后，刷新库文件查看器和词库
+    updateLibraryViewer();
+
+    const initialCode = editorView.state.doc.toString();
+    const initialImports = extractImports(initialCode);
+    buildCompletionWords(initialCode, window.libraryFiles, initialImports);
+}
 
 // ----------------------------------------------------------------------
 // 工具函数：防抖
@@ -636,6 +696,8 @@ function updateBytecodeViewer() {
         selector.dispatchEvent(new Event('change')); 
     }
 }
+
+loadInitialLibraries();
 
 // 1. 导入库文件
 if (importBtn && fileImporter) {

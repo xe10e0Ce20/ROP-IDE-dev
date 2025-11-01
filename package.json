@@ -4,9 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "copy:pyscript": "shx mkdir -p public/vendor/pyscript public/vendor/pyodide && shx cp -R node_modules/@pyscript/core/dist public/vendor/pyscript && shx cp -R node_modules/pyodide public/vendor/pyodide",
-    "dev": "npm run copy:pyscript && vite",
-    "build": "npm run copy:pyscript && vite build",
+    "dev": "vite",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "repository": {
