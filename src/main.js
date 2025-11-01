@@ -46,10 +46,25 @@ window.libraryFiles = window.libraryFiles || {};
 window.completionWords = window.completionWords || {};
 let lastBytecode = "";
 
+const loadingStatusElement = document.getElementById('loading-status');
 const INITIAL_LIBRARIES = [
 'basic-991cnx-verc.ggt',
 'basic-common.macro'
 ];
+
+function updateLoadingStatus(message, isReady = false) {
+    if (loadingStatusElement) {
+        loadingStatusElement.textContent = message;
+        if (isReady) {
+            loadingStatusElement.style.color = 'green';
+            loadingStatusElement.style.fontWeight = 'bold';
+            loadingStatusElement.style.animation = 'fadeout 3s forwards'; // 可选：添加动画或淡出效果
+        } else {
+            loadingStatusElement.style.color = 'orange';
+            loadingStatusElement.style.fontWeight = 'normal';
+        }
+    }
+}
 
 // ----------------------------------------------------------------------
 // 【新增函数】预加载初始库文件
@@ -989,3 +1004,36 @@ if (resizer && leftSide && rightSide) {
 } else {
     console.warn("拖动条 (#dragMe) 或侧边栏 (#editor-container / .output-container) 未找到。");
 }
+
+// main.js (文件末尾)
+// ...
+
+loadInitialLibraries();
+
+// 周期性检查 pyProcessCode 是否准备好
+const checkPyodideReady = setInterval(() => {
+    if (typeof window.pyProcessCode === 'function') {
+        clearInterval(checkPyodideReady);
+        updateLoadingStatus('Python 环境就绪，编译器已加载。', true);
+        
+        // -------------------------------------------------------------
+        // 【重点】如果您的 UI 元素在 Python 就绪前被禁用，请在此处启用
+        // -------------------------------------------------------------
+        const compileBtn = document.getElementById('compile-btn');
+        if (compileBtn) {
+            compileBtn.disabled = false;
+            compileBtn.textContent = '编译 (就绪)';
+        }
+        
+    } else {
+        // 如果 1.C 步没有提供下载进度，这里可以提供一个通用忙碌状态
+        updateLoadingStatus('Python 环境初始化中，等待编译器加载...');
+        
+        // 【可选】在此处禁用编译按钮，防止用户过早点击
+        const compileBtn = document.getElementById('compile-btn');
+        if (compileBtn) {
+            compileBtn.disabled = true;
+            compileBtn.textContent = '初始化中...';
+        }
+    }
+}, 500); // 每 500 毫秒检查一次
