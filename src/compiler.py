@@ -798,7 +798,7 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
     except Exception as e:
         # 将Python错误返回给JS
         js.console.error(f"Python 编译时出错: {e}")
-        return f"PYTHON COMPILE ERROR:\n{e}"
+        return {"error": f"error: {e}"}
 
 # 2. 将Python函数暴露给JS，以便JS的 "编译" 按钮可以调用它
 js.globalThis.pyProcessCode = compile_to_bytecode

@@ -181,7 +181,7 @@ function assignCompletionType(prefix) {
 function extractImports(sourceCode) {
     const lines = sourceCode.split('\n');
     const importedFiles = [];
-    const importRegex = /^\s*import\s+([\w\d._-]+)\s*$/i; // 匹配 import filename
+    const importRegex = /^\s*import\s+([\w\d._-]+)\s*/i; // 匹配 import filename
     const blockStartRegex = /^\s*@block\./i; // 匹配 @block. 开头
 
     for (const line of lines) {
@@ -320,7 +320,7 @@ const debouncedBuildCompletionWords = debounce((sourceCode, libraryFiles, import
 // ----------------------------------------------------------------------
 const myCustomHighlight = StreamLanguage.define({
     token: (stream) => {
-        if (stream.match(/^\s*import\s+([\w\d._-]+)\s*$/i) || stream.match(/import/) || stream.match(/def/)) { return "keyword" }
+        if (stream.match(/^\s*import\s+([\w\d._-]+)\s*/i) || stream.match(/import/) || stream.match(/def/)) { return "keyword" }
         if (stream.match(/\$[^ \t\r\n(]+/)) { return "keyword"; }
         if (stream.match(/\*[^ \t\r\n(]+/)) { return "operatorKeyword"; }
         if (stream.match(/![^ \t\r\n(]+/)) { return "color"; }
@@ -401,77 +401,96 @@ const myLinter = linter(view => {
     let diagnostics = [];
     const code = view.state.doc.toString();
     const lines = code.split('\n');
+
+    // --- 状态和常量 ---
+    let blockSeen = false; // 跟踪是否已经遇到了 @block. 字段
+    const commentStart = ';'; // 根据您的 line.replace(/;.*/, '') 逻辑，假定注释符号为分号 ;
     
-    // --- 2. 十六进制长度检测 (保持修复) ---
+    // 匹配 @block. 开头（用于状态跟踪）
+    const blockRegex = /@block\./i; 
+    
+    // 匹配十六进制字符串 (不以 $!*#@开头)
+    // 使用全局匹配，以便在行内多次查找
     const hexRegex = /(?<![a-zA-Z_$*!#@])\b[0-9a-fA-F]+\b/g; 
-    let hexMatch;
-    while ((hexMatch = hexRegex.exec(code)) !== null) {
-        const hexString = hexMatch[0];
-        const startPos = hexMatch.index;
-        if (hexString.length > 1 && hexString.length % 2 !== 0) { // 只检查长度大于1的
-            diagnostics.push({
-                from: startPos, to: startPos + hexString.length,
-                severity: 'warning', 
-                message: `十六进制数据长度 ${hexString.length} 必须是偶数。`
-            });
-        }
-    }
 
     // --- 行级检测 ---
     lines.forEach((line, i) => {
         const lineStartPos = view.state.doc.line(i + 1).from;
         
-        // **关键：先移除行尾注释再检查结构**
-        const lineWithoutComment = line.replace(/;.*/, '').trim(); 
+        // 1. 识别并移除注释
+        // 移除行尾注释（我们使用您的代码中定义的 ;. * 来作为注释）
+        const commentIndex = line.indexOf(';');
+        const nonCommentText = commentIndex === -1 ? line : line.substring(0, commentIndex);
         
+        const lineWithoutComment = nonCommentText.trim();
+        
+        // 2. 更新 @block. 状态
+        if (blockRegex.test(lineWithoutComment)) {
+            blockSeen = true;
+        }
+
         if (!lineWithoutComment) return; // 忽略空行或只有注释的行
 
-        // --- 3. * 函数检测 (后面必须紧跟 '(' ) ---
-        // 匹配以 * 开头，后面跟着词，但 *之后* 直到行尾（或注释前）都没有 '('
-        const funcMatch = lineWithoutComment.match(/^\*([^\s(]+)/); // 匹配 *word
+        
+        // --- 【新增/移动：条件十六进制长度检测】 ---
+        // 仅在 blockSeen 为 true 时执行十六进制检查
+        if (blockSeen) {
+            let hexMatch;
+            // 在非注释部分中查找所有十六进制字符串
+            while ((hexMatch = hexRegex.exec(lineWithoutComment)) !== null) {
+                const hexString = hexMatch[0];
+                
+                // 确保我们只处理偶数长度的十六进制字符串（代表字节）
+                if (hexString.length > 1 && hexString.length % 2 !== 0) {
+                    
+                    // 计算在原始行中的起始位置
+                    // 注意：这里的 match.index 是在 nonCommentText 中的索引
+                    const startColumn = line.indexOf(hexString, hexMatch.index);
+                    
+                    diagnostics.push({
+                        from: lineStartPos + startColumn,
+                        to: lineStartPos + startColumn + hexString.length,
+                        severity: "error", // 严重性可调
+                        message: `十六进制字符串长度 (${hexString.length}) 必须是偶数`
+                    });
+                }
+            }
+        }
+        // --- 【十六进制检测结束】 ---
+
+
+        // --- 3. * 函数检测 (保持不变) ---
+        // ...
+        const funcMatch = lineWithoutComment.match(/^\*([^\s(]+)/); 
         if (funcMatch) {
-            // 检查从 *word 之后到行尾，是否缺少 '('
             const restOfLine = lineWithoutComment.substring(funcMatch[0].length);
             if (!restOfLine.trim().startsWith('(')) {
-                const starPos = line.indexOf('*'); // 在原始行中找位置
+                const starPos = line.indexOf('*'); 
                  diagnostics.push({
-                    from: lineStartPos + starPos, 
-                    to: lineStartPos + line.length, // 高亮整行或只高亮 *word
-                    severity: 'error', 
-                    message: `* 开头的字段 '${funcMatch[0]}' 后面必须紧跟 '('。`
-                });
+                     from: lineStartPos + starPos, 
+                     to: lineStartPos + line.length, 
+                     severity: 'error', 
+                     message: `* 开头的字段 '${funcMatch[0]}' 后面必须紧跟 '('。`
+                 });
             }
         }
 
-        // --- 4. ! 控制结构检测 (后面必须是 '(...){') ---
-        // 匹配以 ! 开头，后面跟着词
-        const ifMatch = lineWithoutComment.match(/^!([^\s({]+)/); // 匹配 !word
+        // --- 4. ! 控制结构检测 (保持不变) ---
+        // ...
+        const ifMatch = lineWithoutComment.match(/^!([^\s({]+)/); 
         if (ifMatch) {
-            // 检查从 !word 之后到行尾，是否匹配 '(...){' 结构 (允许空格)
-            // 正则：匹配任意字符的 ()，然后是 {，直到行尾
             const structureRegex = /^\s*\([^\)]*\)\s*\{.*$/; 
             const restOfLine = lineWithoutComment.substring(ifMatch[0].length);
             
             if (!restOfLine.match(structureRegex)) {
-                 const bangPos = line.indexOf('!'); // 在原始行中找位置
+                 const bangPos = line.indexOf('!'); 
                  diagnostics.push({
-                    from: lineStartPos + bangPos, 
-                    to: lineStartPos + line.length,
-                    severity: 'error', 
-                    message: `! 开头的字段 '${ifMatch[0]}' 后面必须是 '(...){' 结构。`
-                });
+                     from: lineStartPos + bangPos, 
+                     to: lineStartPos + line.length,
+                     severity: 'error', 
+                     message: `! 开头的字段 '${ifMatch[0]}' 后面必须是 '(...){' 结构。`
+                 });
             }
-        }
-        
-        // --- 保留你原来的 Linter 逻辑 (可选) ---
-        let adrMatch = line.match(/@adr\s+([a-zA-Z0-9_]+)/);
-        if (adrMatch && adrMatch[1].length < 2) {
-             diagnostics.push({
-                from: lineStartPos + adrMatch.index, 
-                to: lineStartPos + adrMatch.index + adrMatch[0].length,
-                severity: 'info', 
-                message: '@adr 标签名建议至少2字符。'
-            });
         }
     });
     
@@ -492,6 +511,7 @@ const myLinter = linter(view => {
  */
 
 function formatHexView(hexString, addr1Hex, addr2Hex, bytesPerLine = 16) {
+    if (hexString.startsWith("error:")) return hexString
     if (!hexString || typeof hexString !== 'string') return "无数据或格式错误";
     
     const addr1Start = parseInt(addr1Hex, 16);
