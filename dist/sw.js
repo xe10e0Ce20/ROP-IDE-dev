@@ -44,7 +44,7 @@ self.addEventListener('fetch', (event) => {
     
     // 如果匹配到需要重定向的外部 CDN 资源
     if (intercepted) {
-        console.warn(`[SW-CATCHALL] 重定向: ${requestUrl} -> ${newUrl}`);
+        console.debug(`[SW-CATCHALL] 重定向: ${requestUrl} -> ${newUrl}`);
         // 确保使用新的 URL 发起请求，且 CORS 模式通常为 same-origin（如果目标是本地）
         event.respondWith(fetch(newUrl, { mode: 'cors' }));
     } 

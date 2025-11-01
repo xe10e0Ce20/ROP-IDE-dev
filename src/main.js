@@ -181,7 +181,7 @@ function assignCompletionType(prefix) {
 function extractImports(sourceCode) {
     const lines = sourceCode.split('\n');
     const importedFiles = [];
-    const importRegex = /^\s*import\s+([\w\d.-_]+)\s*$/i; // 匹配 import filename
+    const importRegex = /^\s*import\s+([\w\d._-]+)\s*$/i; // 匹配 import filename
     const blockStartRegex = /^\s*@block\./i; // 匹配 @block. 开头
 
     for (const line of lines) {
@@ -320,7 +320,7 @@ const debouncedBuildCompletionWords = debounce((sourceCode, libraryFiles, import
 // ----------------------------------------------------------------------
 const myCustomHighlight = StreamLanguage.define({
     token: (stream) => {
-        if (stream.match(/import/) || stream.match(/def/)) { return "keyword" }
+        if (stream.match(/^\s*import\s+([\w\d._-]+)\s*$/i) || stream.match(/import/) || stream.match(/def/)) { return "keyword" }
         if (stream.match(/\$[^ \t\r\n(]+/)) { return "keyword"; }
         if (stream.match(/\*[^ \t\r\n(]+/)) { return "operatorKeyword"; }
         if (stream.match(/![^ \t\r\n(]+/)) { return "color"; }
