@@ -47,36 +47,39 @@ window.completionWords = window.completionWords || {};
 let lastBytecode = "";
 
 const INITIAL_LIBRARIES = [
-    // 假设您的预置库文件放在 /vendor/libraries/ 目录下
-    // 文件名将用作 import 语句中的名称和 libraryFiles 字典的键
-    { name: 'basic_rop', path: '/vendor/libraries/basic_rop.txt' },
-    { name: 'crypto_util', path: '/vendor/libraries/crypto_util.txt' },
-    // 您可以根据需要添加更多库文件
+'basic-991cnx-verc.ggt',
+'basic-common.macro'
 ];
 
 // ----------------------------------------------------------------------
 // 【新增函数】预加载初始库文件
 // ----------------------------------------------------------------------
+
+const LIBRARY_BASE_PATH = '/vendor/libraries/'; // 基础路径
 async function loadInitialLibraries() {
     console.log("DEBUG: loadInitialLibraries 开始执行...");
     
-    const fetchPromises = INITIAL_LIBRARIES.map(lib => 
-        fetch(lib.path)
+    // 使用 Promise.all 来并行加载文件
+    const fetchPromises = INITIAL_LIBRARIES.map(fileName => {
+        // 【核心修改】根据文件名构造路径
+        const filePath = LIBRARY_BASE_PATH + fileName; 
+
+        return fetch(filePath)
             .then(response => {
                 if (!response.ok) {
-                    throw new Error(`无法加载库文件 ${lib.name} (${response.status})`);
+                    throw new Error(`无法加载库文件 ${fileName} (${response.status})`);
                 }
                 return response.text();
             })
             .then(content => {
-                window.libraryFiles[lib.name] = content;
-                console.log(`DEBUG: 成功预加载库文件: ${lib.name}`);
+                window.libraryFiles[fileName] = content; // 文件名即为键名
+                console.log(`DEBUG: 成功预加载库文件: ${fileName}`);
             })
             .catch(error => {
                 console.error(error.message);
                 // 即使失败，也继续处理其他文件
-            })
-    );
+            });
+    });
 
     // 等待所有文件加载完毕
     await Promise.all(fetchPromises);
@@ -601,6 +604,8 @@ buildCompletionWords(initialCode, window.libraryFiles, initialImports);
 // 步骤 6: 连接所有 UI 按钮和事件
 // ----------------------------------------------------------------------
 
+const projectNameInput = document.getElementById('project-name');
+const projectName = projectNameInput ? projectNameInput.value.trim() : "source";
 const importBtn = document.getElementById('import-btn');
 const fileImporter = document.getElementById('file-importer');
 const compileBtn = document.getElementById('compile-btn');
@@ -847,6 +852,27 @@ function downloadFile(filename, content, type = 'text/plain') {
     URL.revokeObjectURL(url); // 释放 URL 对象
 }
 
+if(exportSourceBtn) {
+    exportSourceBtn.onclick = () => {
+        // 1. 从 CodeMirror 编辑器获取当前内容
+        const sourceCode = editorView.state.doc.toString();
+        
+        // 2. 检查内容是否为空
+        if (!sourceCode.trim()) {
+            alert('编辑器中没有内容可以导出！');
+            return;
+        }
+
+        // 3. 询问文件名 (可选，如果不需要询问，可以直接使用固定文件名)
+        const filename = `${projectName}.rop`
+
+        if (filename) {
+            // 4. 调用下载函数
+            downloadFile(filename, sourceCode, 'text/plain');
+        }
+    };
+}
+
 if(exportBytecodeBtn) { 
     exportBytecodeBtn.onclick = () => { 
         const selectedBlock = bytecodeSelector ? bytecodeSelector.value : null;
@@ -864,10 +890,10 @@ if(exportBytecodeBtn) {
         if (format && format.toLowerCase() === 'bin') {
             // 导出二进制
             const byteArray = hexStringToUint8Array(hexString);
-            downloadFile(`${blockName}.bin`, byteArray, 'application/octet-stream');
+            downloadFile(`${projectName}_${blockName}.bin`, byteArray, 'application/octet-stream');
         } else if (format && format.toLowerCase() === 'txt') {
             // 导出文本
-            downloadFile(`${blockName}.txt`, hexString, 'text/plain');
+            downloadFile(`${projectName}_${blockName}.txt`, hexString, 'text/plain');
         } else if (format !== null) {
             alert('无效的格式，请输入 "txt" 或 "bin"。');
         }

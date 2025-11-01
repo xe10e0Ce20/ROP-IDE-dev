@@ -47,6 +47,9 @@
             border-radius: 4px;
             padding: 5px;
         }
+        #project-name {
+            width: 300px; /* 增大项目名输入框的宽度 */
+        }
 
         /* 主容器 (左右布局) */
         .main-container {
@@ -163,7 +166,7 @@
         #bytecode-view { display: block; }
         #library-viewer { display: none; }
     </style>
-  <script type="module" crossorigin src="./assets/index-C_SZcH1V.js"></script>
+  <script type="module" crossorigin src="./assets/index-D4ZVunwD.js"></script>
 </head>
 <body>
 
@@ -173,6 +176,7 @@
         <button id="compile-btn">编译</button>
         <button id="export-source-btn">导出源代码</button>
         <button id="export-bytecode-btn">导出字节码</button>
+        <span>项目名: <input type="text" id="project-name" value="ROP_Project"></span>
         <span>地址1: <input type="text" id="addr1" value="D710"></span>
         <span>地址2: <input type="text" id="addr2" value="E9E0"></span>
     </div>
