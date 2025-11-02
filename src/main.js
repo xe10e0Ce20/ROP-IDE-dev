@@ -253,7 +253,7 @@ function buildCompletionWords(sourceCode, libraryFiles = {}, importedFileNames =
     
     sources.forEach(source => {
         const lines = source.content.split('\n');
-        let inCodeBlock = true; 
+        let inCodeBlock = false; 
 
         lines.forEach((line) => {
             const trimmedLine = line.trim();
@@ -280,8 +280,8 @@ function buildCompletionWords(sourceCode, libraryFiles = {}, importedFileNames =
             } 
             // --- 2. 代码文件 def 行 ---
             else if (!source.isLibrary) {
-                 if (trimmedLine.match(/^@block/i)) { inCodeBlock = false; return; }
-                 if (inCodeBlock) {
+                 if (trimmedLine.match(/^@block/i)) { inCodeBlock = true; return; }
+                 if (!inCodeBlock) {
                      match = line.match(defRegex);
                      if (match) {
                         // ... (逻辑保持不变) ...
@@ -293,9 +293,8 @@ function buildCompletionWords(sourceCode, libraryFiles = {}, importedFileNames =
                              newWords[key] = { label: key, detail: comment || '', type: assignedType, rt: rt };
                          }
                     }
-                     
-                    // --- 【新增】代码文件 @adr.xxx 行 ---
-                    match = line.match(adrLabelRegex);
+                }
+                match = line.match(adrLabelRegex);
                     if (match) {
                         const labelName = match[1]; // xxx
                         comment = (match[3] || '').trim();
@@ -311,7 +310,6 @@ function buildCompletionWords(sourceCode, libraryFiles = {}, importedFileNames =
                              newWords[key2] = { label: key2, detail: comment || '', type: 'label' };
                         }
                     }
-                }
             }
         });
     });
@@ -339,7 +337,7 @@ const myCustomHighlight = StreamLanguage.define({
         if (stream.match(/\$[^ \t\r\n(]+/)) { return "keyword"; }
         if (stream.match(/\*[^ \t\r\n(]+/)) { return "operatorKeyword"; }
         if (stream.match(/![^ \t\r\n(]+/)) { return "color"; }
-        if (stream.match(/#[^ \t\r\n(]+/)) { return "string"; }
+        if (stream.match(/#[a-zA-Z0-9_]+/)) { return "string"; }
         if (stream.match(/^([0-9a-fA-FXx]{2})+/)) { return "string"; }
         if (stream.match(/^@[a-zA-Z0-9_=.]+/)) { return "variableName"; }
         if (stream.match(/^\/\/.*/)) { return "comment"; }

@@ -6,11 +6,11 @@ const CACHE_NAME = `pwa-offline-cache-${VERSION}`;
 const CORE_CACHE_ASSETS = [
     '/', 
     '/index.html', 
-    '/manifest.json', // 新增：PWA Manifest 文件
+    '/assets/manifest-CksoMjeB.json', // 新增：PWA Manifest 文件
     
     // 【新增】本地应用资源 (从 index.html 发现)
     '/src/compiler.py', 
-    '/src/main.js', // 修正路径以匹配 index.html
+    '/assets/index-f2oZCQHj.js', // 修正路径以匹配 index.html
     '/vendor/pyscript/dist/core.css',
     '/vendor/pyscript/dist/core.js',
     

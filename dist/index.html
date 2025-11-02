@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ROP-IDE</title>
-    
+
     <link rel="icon" type="image/png" sizes="192x192" href="./icon-192x192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="./icon-512x512.png">
 
@@ -25,7 +25,7 @@
             background-color: #21252b; /* 深色背景 */
             font-size: 20px
         }
-        
+
         /* 工具栏 */
         .toolbar {
             padding: 10px;
@@ -77,29 +77,25 @@
 
         /* 左侧：代码区 */
         #editor-container {
-            /* flex: 1;  <-- 移除 */
             flex-basis: 50%; /* 初始宽度 50% */
             height: 100%;
             overflow: auto;
-            position: relative; /* 为了拖动条定位 */
+            position: relative;
         }
         /* CodeMirror 必须有一个明确的高度才能显示 */
         .cm-editor {
             height: 100%;
-            font-size: 20px; /* 编辑器字体大小 */
-            /* 【修改】应用 VS Code 字体栈 */
+            font-size: 20px; 
             font-family: Consolas, 'Courier New', monospace; 
         }
 
         /* 右侧：查看区 */
         .output-container {
-            /* flex: 1; <-- 移除 */
-            flex-basis: 50%; /* 初始宽度 50% */
+            flex-basis: 50%; 
             display: flex;
             flex-direction: column;
             background: #282c34;
-            /* border-left: 2px solid #4a4f5a; <-- 移除，由拖动条代替 */
-            overflow: hidden; /* 防止内容溢出影响布局 */
+            overflow: hidden; 
         }
         .output-tabs {
             padding: 5px 10px;
@@ -150,7 +146,6 @@
             border: 1px solid #4a4f5a;
             border-radius: 4px;
             margin-bottom: 10px; 
-            /* 【修改】应用 VS Code 字体栈 */
             font-family: Consolas, 'Courier New', monospace; 
         }
         #bytecode-content-display {
@@ -159,41 +154,105 @@
             padding: 10px;
             border-radius: 4px;
             min-height: 200px; 
-            white-space: pre; /* Hex View 需要 pre 格式 */
+            white-space: pre; 
             word-break: break-all; 
-            overflow-x: auto; /* 允许水平滚动 */
-            /* 【修改】应用 VS Code 字体栈 */
+            overflow-x: auto; 
             font-family: Consolas, 'Courier New', monospace; 
-            font-size: 14px; /* 与编辑器一致 */
-            line-height: 1.4; /* 调整行高以便阅读 */
+            font-size: 14px; 
+            line-height: 1.4; 
         }
-        
+
         /* 默认隐藏非活动标签页 */
         #bytecode-view { display: block; }
         #library-viewer { display: none; }
+        
+        /* ---------------------------------------------------- */
+        /* 【教程模态框样式修正】: 覆盖全屏和深色主题 */
+        /* ---------------------------------------------------- */
+        #tutorial-modal {
+            /* 关键：使用 fixed 定位脱离文档流，不参与 Flex 布局 */
+            position: fixed; 
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%; 
+            background: rgba(0, 0, 0, 0.9); /* 更深的遮罩 */
+            z-index: 9999; 
+            display: none; /* 初始隐藏 */
+            
+            /* 居中模态框内容 */
+            display: none;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto; /* 允许整个模态框滚动 */
+            padding: 20px;
+        }
+
+        #tutorial-content-wrapper {
+            background: #282c34; /* 深色主题背景 */
+            color: #abb2bf; /* 亮色字体 */
+            padding: 25px; 
+            border-radius: 8px;
+            width: 90%; 
+            max-width: 900px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            max-height: 90vh; /* 限制高度，确保在小屏幕上也能看到关闭按钮 */
+            overflow-y: auto; /* 确保内容可滚动 */
+        }
+        
+        /* 确保模态框内的文本颜色正确，不被 CodeMirror 样式影响 */
+        #tutorial-content {
+            color: #abb2bf; 
+            font-size: 16px; 
+            line-height: 1.6;
+        }
+
+        /* 确保标题颜色和分隔线 */
+        #tutorial-content h1, 
+        #tutorial-content h2, 
+        #tutorial-content h3 {
+            color: #528bff; /* 使用主题蓝色 */
+            border-bottom: 1px solid #3a3f4b;
+            padding-bottom: 5px;
+            margin-top: 1.5em;
+        }
+        #tutorial-content a {
+            color: #528bff;
+        }
+
+        /* 代码块和行内代码 (解决深灰背景/黑字问题) */
+        #tutorial-content pre, #tutorial-content code {
+            background-color: #21252b; /* 最深的背景色 */
+            color: #e6db74; /* 亮黄色代码字体 */
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: Consolas, 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        #tutorial-content pre {
+            display: block;
+            padding: 10px;
+            margin: 1em 0;
+            overflow-x: auto;
+        }
     </style>
-  <script type="module" crossorigin src="./assets/index-f2oZCQHj.js"></script>
+  <script type="module" crossorigin src="./assets/index-DRMfpZoN.js"></script>
 </head>
 <body>
-
+    
     <div class="toolbar">
         <input type="file" id="file-importer" multiple style="display: none;">
         <button id="import-btn">导入自定义配置</button>
         <button id="compile-btn">初始化中...</button>
         <button id="export-source-btn">导出源代码</button>
         <button id="export-bytecode-btn">导出字节码</button>
+        
+        <button id="show-tutorial-btn">语法教程</button>
+        
         <span>项目名: <input type="text" id="project-name" value="ROP_Project"></span>
         <span>地址1: <input type="text" id="addr1" value="D710"></span>
         <span>地址2: <input type="text" id="addr2" value="E9E0"></span>
-        <button id="show-tutorial-btn">语法教程</button>
-
-        <div id="tutorial-modal" style="display: none;">
-            <div id="tutorial-content">
-                </div>
-            <button id="close-modal-btn">关闭</button>
-        </div>
-
-        <script src="./vendor/marked/marked.min.js"></script>
     </div>
 
     <div class="main-container">
@@ -202,36 +261,42 @@
         <div id="dragMe" class="resizer"></div>
 
         <div class="output-container">
-        <div class="output-tabs">
-            <button id="tab-bytecode-btn" class="active">字节码</button>
-            <button id="tab-library-btn">库文件</button>
+            <div class="output-tabs">
+                <button id="tab-bytecode-btn" class="active">字节码</button>
+                <button id="tab-library-btn">库文件</button>
+            </div>
+
+            <div id="bytecode-view" class="output-content">
+                <select id="bytecode-selector">
+                    <option value="">-- 请先编译 --</option>
+                </select>
+                <pre id="bytecode-content-display">编译结果将显示在此处...</pre>
+            </div>
+
+            <div id="library-viewer" class="output-content">
+                <select id="library-selector">
+                    <option value="">-- 请先导入库文件 --</option>
+                </select>
+                <pre id="library-content-display"></pre>
+            </div>
         </div>
-        
-        <div id="bytecode-view" class="output-content">
-            <select id="bytecode-selector">
-                <option value="">-- 请先编译 --</option>
-            </select>
-            <pre id="bytecode-content-display">编译结果将显示在此处...</pre>
-        </div>
-        
-        <div id="library-viewer" class="output-content">
-            <select id="library-selector">
-                <option value="">-- 请先导入库文件 --</option>
-            </select>
-            <pre id="library-content-display"></pre>
-        </div>
-    </div>
     </div>
 
     <py-config>
         packages = ["lark"]
     </py-config>
 
-
     <py-script src="/src/compiler.py"></py-script>
 
- 
+    <div id="tutorial-modal">
+        <div id="tutorial-content-wrapper">
+            <h2>语法教程</h2>
+            <div id="tutorial-content">正在加载教程...</div>
+            <button id="close-modal-btn" class="toolbar-button">关闭</button>
+        </div>
+    </div>
+
+    <script src="./vendor/marked/marked.min.js"></script>
 </body>
 
 </html>
-
