@@ -1,16 +1,24 @@
 // sw.js
-const VERSION = 'v2.0.0'; // *** 版本号更新到 v2.0.0 启用离线缓存 ***
+const VERSION = 'v2.0.1'; // *** 版本号更新到 v2.0.1 修复离线加载和安装问题 ***
 const CACHE_NAME = `pwa-offline-cache-${VERSION}`;
 
-// 【核心缓存文件列表】: 包含应用运行所需的所有本地文件
-// 重要的：请务必检查并添加您的 index.html、所有 CSS、图片和自定义 JS 文件！
+// 【核心缓存文件列表】: 补充所有本地依赖文件
 const CORE_CACHE_ASSETS = [
     '/', 
     '/index.html', 
-    '/main.js', // 根据您的文件，确保此路径正确
-    // 示例：'/styles/main.css', 
+    '/manifest.json', // 新增：PWA Manifest 文件
     
-    // --- Pyodide & 依赖文件 (REDIRECT_MAP 目标) ---
+    // 【新增】本地应用资源 (从 index.html 发现)
+    '/src/compiler.py', 
+    '/src/main.js', // 修正路径以匹配 index.html
+    '/vendor/pyscript/dist/core.css',
+    '/vendor/pyscript/dist/core.js',
+    
+    // 【新增】main.js 中预加载的初始库文件
+    '/vendor/libraries/basic-991cnx-verc.ggt', 
+    '/vendor/libraries/basic-common.macro', 
+    
+    // --- Pyodide & 依赖文件 (REDIRECT_MAP 目标，保留不变) ---
     '/vendor/pyodide/pyodide/pyodide.js',
     '/vendor/pyodide/pyodide/pyodide.asm.wasm',
     '/vendor/pyodide/pyodide/repodata.json', 
@@ -45,7 +53,7 @@ self.addEventListener('install', (event) => {
                 return cache.addAll(CORE_CACHE_ASSETS);
             })
             .then(() => {
-                return self.skipWaiting(); // 保持原有功能：立即激活
+                return self.skipWaiting(); 
             })
             .catch(error => {
                 console.error('[SW] 核心文件预缓存失败，应用可能无法离线运行:', error);
@@ -69,7 +77,7 @@ self.addEventListener('activate', (event) => {
                     }
                 })
             );
-        }).then(() => self.clients.claim()) // 保持原有功能：接管客户端
+        }).then(() => self.clients.claim())
     );
 });
 
@@ -81,7 +89,7 @@ self.addEventListener('fetch', (event) => {
     const requestUrl = event.request.url;
     let newUrl = null;
     let intercepted = false;
-    let originalSegment = null; // 用于存储匹配到的键
+    let originalSegment = null; 
 
     // --- 1. 现有重定向逻辑（获取最终目标 URL） ---
     for (const [segment, path] of Object.entries(REDIRECT_MAP)) {
@@ -104,18 +112,19 @@ self.addEventListener('fetch', (event) => {
     // --- 2. 离线缓存处理 ---
     
     // 如果请求被重定向（外部 CDN 请求），使用本地目标 URL 作为缓存键
+    // 否则，使用原始请求作为缓存键
     const targetUrl = intercepted ? newUrl : event.request;
     
     event.respondWith(
         caches.match(targetUrl).then(cachedResponse => {
             
-            // A. 命中缓存：优先返回缓存结果
+            // A. 命中缓存：优先返回缓存结果 (无论是预缓存的本地文件，还是重定向的目标文件)
             if (cachedResponse) {
                 console.debug(`[SW-CACHE] 命中缓存: ${targetUrl}`);
                 return cachedResponse;
             }
 
-            // B. 缓存未命中：执行网络请求
+            // B. 缓存未命中：执行网络请求 (这是在离线状态下失败的原因)
             
             // 如果被拦截，使用 newUrl 和 CORS 模式发起网络请求
             if (intercepted) {
@@ -126,14 +135,11 @@ self.addEventListener('fetch', (event) => {
             // 如果是应用自身的请求（未被拦截），正常从网络获取
             return fetch(event.request).catch(error => {
                  console.error(`[SW-OFFLINE] 网络请求失败: ${requestUrl}`, error);
-                 // 此时无法提供离线内容，因为它不在核心缓存列表中，或者预缓存失败。
-                 // 如果您有离线页面，可以在此处返回。
+                 // 离线时，此处的 catch 会被触发，因为文件不在缓存中。
+                 // 现在 CORE_CACHE_ASSETS 完整了，只有新加载的或缺失的才会到这里。
+                 // 可以返回一个自定义的 404 响应，或者一个空白/离线提示页面。
+                 return new Response("应用离线，且该资源未被缓存。", { status: 503, statusText: "Offline" });
             });
         })
     );
 });
-
-
-// 确保 Service Worker 立即激活 (已在 install 阶段实现)
-// self.addEventListener('install', ...)
-// self.addEventListener('activate', ...)

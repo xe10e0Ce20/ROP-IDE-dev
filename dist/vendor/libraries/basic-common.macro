@@ -1,0 +1,186 @@
+//格式：
+//*function (arg0(=defaultValue)?, arg1(=defaultValue)?){  使用=xxx来指定默认值
+//  %_arg0_%   用%_ _%包裹参数
+//  @adr.&_xxx_&   用&_ _&来限制地址标签的作用域
+//  #&_xxx_&    
+//}
+// 规范：如果依赖RT返回则在末尾增加?
+
+//拼字
+*print (str, row=21, font=0E){      //*print(字符串地址, 行, 字体)
+    $xr0= %_font_% %_row_% [ %_str_% ]
+    $print
+}
+
+*print_cont (row=21, font=0E){      //接续前面的打印字符，即不更新er2直接打印
+    $er0= %_font_% %_row_%
+    $print
+} 
+*render_bitmap (pattern, posx, posy, sizex, sizey){ 
+    $xr0= %_posx_% %_posy_% %_sizex_% %_sizey_%
+    $render_bitmap
+    $er0= [ %_pattern_% ]
+    $render_ddd4
+}
+
+//延迟
+*delay (time=96){     //默认5秒
+    $er0= xx %_time_%
+    $delay
+}
+
+//跳sp，直接输入真实大端地址即可，会自动计算偏移量
+*jump_er14 (adr){       //跳sp，直接输入真实大端地址即可，会自动计算偏移量
+    $er14= [< %_adr_% - 0008 >]         //跳sp，直接输入真实大端地址即可，会自动计算偏移量
+    $sp=er14&q8
+}
+*jump_er6 (adr){ 
+    $er6= [< %_adr_% - 0002 >]
+    $sp=er6&e8
+}
+
+
+//内存修改
+*strcpy (tar, src){     //*strcpy (目标, 源)
+    $xr0= [ %_tar_% ] [ %_src_% ]
+    $strcpy
+}
+*memcpy (tar, src, len){    //*memcpy (目标, 源, 长度)
+    $xr0= [ %_tar_% ] [ %_src_% ]
+    $memcpy [ %_len_% ]
+}
+*memcpy_special (tar, src, len, er6=xxxx){  //也是memcpy，但是用的1cc87
+    $qr0= [ %_len_% ] [ %_src_% ] [ %_tar_% ] [ %_er6_% ]
+    $memcpy_special xx xx
+}
+*memset (tar, val, len){        //*memset (tar, val, len)，将[tar]指向的位置填充长度为len的val
+    $xr0= [ %_tar_% ] %_val_% xx
+    $memset [ %_len_% ]
+}
+
+
+*[er0]=r2 (tar, val){   //*[er0]=r2 (tar, val)，将[tar]指向的位置赋值为val，寄存器赋值已经预先打包好
+    $xr0= [ %_tar_% ] %_val_% xx
+    $[er0]=r2
+}
+
+
+*[er8]+=er2 (tar, val, xr8=xxxxxxxx){   //将er2的值加到er8指向的地址
+    $er8= [ %_tar_% ] 
+    $er2= [ %_val_% ]
+    $[er8]+=er2&x8
+    %_xr8_%
+}
+
+
+
+*readkeyto_er0 ( defaultvalue=3333 ){   //*readkeyto_er0 ( defaultvalue=3333 )，读取键码至er0，可以指定er0的默认值，这里默认为3333
+    $er8= [ #&_er0_& ]
+    $er14= [< #&_jump_& - 000c >]
+    $?readkeyto[er8]&x4q8
+    @adr.&_jump_&
+    $er0= 
+    @adr.&_er0_&
+    %_defaultvalue_%
+}
+
+
+
+
+*setea (value, xr4=xxxxxxxx){   //*setea (value, xr4=xxxxxxxx)一键赋值EA，可以指定最后popxr4的值，默认为xxxxxxxx
+    $er6= 01xx
+    $?eaxr4= [ %_value_% ]
+    %_xr4_%
+}
+
+*setea|[er4]=er0 (er4, value, xr4=xxxxxxxx){    //也是赋值ea，不过同时ST ER0, [ER4]，用于重复键码判断
+    $xr4= [ %_er4_% ] 01 00
+    $?[er4]=er0&eax4 [ %_value_% ]
+    %_xr4_%
+}
+
+*?setea? (value){
+    $er12= [ %_value_% - 000a]
+    $?ea=er12?
+}
+
+*dispatch_by_ea (table_dest){   //*dispatch_by_ea (table_dest) ea键码分支法，输入键码表的起始地址就可以直接分支。
+    *setea (%_table_dest_%)
+    $traverse_by_ea
+    $?er6qr8=[ea]
+    $sp=er6&e8
+}
+
+
+*dispatch_by_ea_2? (table_dest){    //使用17b40赋值ea，会污染ea前0x0a个字节，且rt返回，虽然字节数较少，不建议使用。。。
+    *?setea? (%_table_dest_%)
+    $traverse_by_ea
+    $?er6qr8=[ea]
+    $sp=er6&e8
+}
+
+
+//清除屏幕
+*clear_ddd4 (){
+    $er0= 00xx
+    $clear
+}
+*clear_e3d4 (){ 
+    $er0= 40xx
+    $clear
+}
+
+
+
+//格式：
+//*function (arg0, arg1=defaultValue){%%BODY%%}{    用%%BODY%%来作为函数体的插入位置
+//  %_arg0_%   用%_ _%包裹参数
+//  @adr.&_xxx_&   用&_ _&来限制地址标签的作用域
+//  #&_xxx_&    
+//}
+// 规范：如果依赖RT返回则在末尾增加?
+
+!ifzeror2? () {%%BODY%%} {      //如果r2为0则执行后面代码块的内容
+    $er0er4= [ #&_start_& - 003e ] [ #&_end_& - #&_start_& ]
+    $er4=er0+r2*er4?
+    $sp=er4+32&x4q8
+    @adr.&_start_&
+    %%BODY%%
+    @adr.&_end_&
+}
+
+!ifer0>er2? () {%%BODY%%} {
+    $r0=er0<=er2?
+    $?er2=er0?
+    $er0er4= [ #&_start_& - 003e ] [ #&_end_& - #&_start_& ]
+    $er4=er0+r2*er4?
+    $sp=er4+32&x4q8
+    @adr.&_start_&
+    %%BODY%%
+    @adr.&_end_&
+}
+
+!ifer0<er2? () {%%BODY%%} { 
+    $r0=er0>=er2?
+    $?er2=er0?
+    $er0er4= [ #&_start_& - 003e ] [ #&_end_& - #&_start_& ]
+    $er4=er0+r2*er4?
+    $sp=er4+32&x4q8
+    @adr.&_start_&
+    %%BODY%%
+    @adr.&_end_&
+}
+
+!loop (tar, src, extra_len=0000) {%%BODY%%} {       //!loop (运行地址, 源地址, 额外长度=0000) {BODY} xyzst循环，可以指定循环结束后额外复制多少字节
+    @adr.&_start_&
+    %%BODY%%
+    @adr.&_end_&
+    *[er0]=r2 (#&_com_&, 01)
+    $qr0= [< #&_end_& - #&_start_& + 0030>] [%_src_%] [%_tar_%] [#&_start_& - 0002]
+    cc 87 
+    @adr.&_com_&
+    [%_extra_len_% + 0008]
+    00 00
+    $sp=er6&e8
+}
+
