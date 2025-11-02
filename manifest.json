@@ -1,0 +1,10 @@
+{
+    "name": "ROP-IDE",
+    "short_name": "ROP-IDE",
+    "description": "ROP-IDE",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#21252b",
+    "theme_color": "#528bff"
+}
