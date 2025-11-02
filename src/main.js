@@ -1037,3 +1037,63 @@ const checkPyodideReady = setInterval(() => {
         }
     }
 }, 500); // 每 500 毫秒检查一次
+
+
+// main.js (在现有逻辑的末尾或工具函数区域)
+
+// 获取 DOM 元素
+const showTutorialBtn = document.getElementById('show-tutorial-btn');
+const tutorialModal = document.getElementById('tutorial-modal');
+const tutorialContent = document.getElementById('tutorial-content');
+const closeModalBtn = document.getElementById('close-modal-btn');
+
+// 定义 Markdown 文件路径
+const README_PATH = '/README.md';
+
+/**
+ * 从本地获取 README.md 并将其渲染为 HTML
+ */
+async function loadAndRenderReadme() {
+    try {
+        // 1. 发起请求获取 Markdown 文件内容
+        const response = await fetch(README_PATH);
+        if (!response.ok) {
+            throw new Error(`无法加载 ${response.status} ${response.statusText}`);
+        }
+        
+        const markdownText = await response.text();
+        
+        // 2. 使用 Marked.js 渲染 Markdown 为 HTML
+        // 假设 marked.js 已经通过 <script> 标签加载，并在全局暴露 marked 对象
+        // 如果您使用的是 ES Module，您需要 import 方式引入 marked.js
+        if (typeof marked === 'undefined') {
+             tutorialContent.innerHTML = "Markdown 渲染库未加载。";
+             return;
+        }
+        
+        // 使用 marked.js 将 Markdown 文本转换为 HTML
+        const htmlContent = marked.parse(markdownText);
+
+        // 3. 将渲染结果插入到容器中
+        tutorialContent.innerHTML = htmlContent;
+
+        // 4. 显示模态框
+        tutorialModal.style.display = 'block';
+
+    } catch (error) {
+        console.error("加载和渲染教程失败:", error);
+        tutorialContent.innerHTML = `加载教程失败：${error.message}`;
+        tutorialModal.style.display = 'block';
+    }
+}
+
+// 添加事件监听器
+if (showTutorialBtn) {
+    showTutorialBtn.addEventListener('click', loadAndRenderReadme);
+}
+
+if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', () => {
+        tutorialModal.style.display = 'none';
+    });
+}

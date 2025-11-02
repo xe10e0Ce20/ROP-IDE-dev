@@ -1,5 +1,5 @@
 // sw.js
-const VERSION = 'v2.0.1'; // *** 版本号更新到 v2.0.1 修复离线加载和安装问题 ***
+const VERSION = 'v2.5.0'; // *** 版本号更新到 v2.0.1 修复离线加载和安装问题 ***
 const CACHE_NAME = `pwa-offline-cache-${VERSION}`;
 
 // 【核心缓存文件列表】: 补充所有本地依赖文件
@@ -21,10 +21,25 @@ const CORE_CACHE_ASSETS = [
     // --- Pyodide & 依赖文件 (REDIRECT_MAP 目标，保留不变) ---
     '/vendor/pyodide/pyodide/pyodide.js',
     '/vendor/pyodide/pyodide/pyodide.asm.wasm',
+    '/vendor/pyodide/pyodide/pyodide.asm.js',
     '/vendor/pyodide/pyodide/repodata.json', 
+    '/vendor/pyodide/pyodide/python_stdlib.zip',
+    '/vendor/pyodide/pyodide/micropip-0.3.0-py3-none-any.whl',
+    '/vendor/pyodide/pyodide/packaging-23.0-py3-none-any.whl',
     '/vendor/toml/toml.js',
+    '/vendor/toml/toml.js.map',
     '/vendor/pypi/lark-1.3.1-py3-none-any.whl',
-    '/vendor/pypi/lark/json.json'
+    '/vendor/pypi/lark/json.json',
+
+    '/vendor/pyscript/dist/error-e4fe78fd.js',
+    '/vendor/pyodide/pyodide/pyodide.mjs',
+    '/favicon.ico',
+
+    '/icon-192x192.png',
+    '/icon-512x512.png',
+
+    '/README.md',
+    '/vendor/marked/marked.min.js'
 ];
 
 const REDIRECT_MAP = {
@@ -33,6 +48,7 @@ const REDIRECT_MAP = {
 
     // 2. toml.js (来自 PyScript 内部的硬编码)
     'cdn.jsdelivr.net/npm/@webreflection/toml-j0.4/toml.js': '/vendor/toml/toml.js',
+    'cdn.jsdelivr.net/npm/@webreflection/toml-j0.4/toml.js.map': '/vendor/toml/toml.js.map',
 
     // 3. Lark Wheel 文件 (来自 micropip 内部查找)
     'lark-1.3.1-py3-none-any.whl': '/vendor/pypi/lark-1.3.1-py3-none-any.whl',

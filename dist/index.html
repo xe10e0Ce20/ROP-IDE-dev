@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ROP-IDE</title>
+    
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="./icon-512x512.png">
 
-    <link rel="manifest" href="./assets/manifest-CYgVujcE.json">
+    <link rel="manifest" href="./assets/manifest-CksoMjeB.json">
     <meta name="theme-color" content="#528bff">
 
     <link rel="stylesheet" href="./vendor/pyscript/dist/core.css" />
@@ -168,20 +171,29 @@
         /* 默认隐藏非活动标签页 */
         #bytecode-view { display: block; }
         #library-viewer { display: none; }
-    </style>
-  <script type="module" crossorigin src="./assets/index-DncIfIo_.js"></script>
+    </style>
+  <script type="module" crossorigin src="./assets/index-f2oZCQHj.js"></script>
 </head>
 <body>
 
     <div class="toolbar">
         <input type="file" id="file-importer" multiple style="display: none;">
-        <button id="import-btn">导入库文件</button>
+        <button id="import-btn">导入自定义配置</button>
         <button id="compile-btn">初始化中...</button>
         <button id="export-source-btn">导出源代码</button>
         <button id="export-bytecode-btn">导出字节码</button>
         <span>项目名: <input type="text" id="project-name" value="ROP_Project"></span>
         <span>地址1: <input type="text" id="addr1" value="D710"></span>
         <span>地址2: <input type="text" id="addr2" value="E9E0"></span>
+        <button id="show-tutorial-btn">语法教程</button>
+
+        <div id="tutorial-modal" style="display: none;">
+            <div id="tutorial-content">
+                </div>
+            <button id="close-modal-btn">关闭</button>
+        </div>
+
+        <script src="./vendor/marked/marked.min.js"></script>
     </div>
 
     <div class="main-container">
@@ -217,6 +229,9 @@
 
 
     <py-script src="/src/compiler.py"></py-script>
- 
+
+ 
 </body>
+
 </html>
+
