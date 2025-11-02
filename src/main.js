@@ -337,7 +337,7 @@ const myCustomHighlight = StreamLanguage.define({
         if (stream.match(/\$[^ \t\r\n(]+/)) { return "keyword"; }
         if (stream.match(/\*[^ \t\r\n(]+/)) { return "operatorKeyword"; }
         if (stream.match(/![^ \t\r\n(]+/)) { return "color"; }
-        if (stream.match(/#[a-zA-Z0-9_]+/)) { return "string"; }
+        if (stream.match(/#[a-zA-Z0-9_#]+/)) { return "string"; }
         if (stream.match(/^([0-9a-fA-FXx]{2})+/)) { return "string"; }
         if (stream.match(/^@[a-zA-Z0-9_=.]+/)) { return "variableName"; }
         if (stream.match(/^\/\/.*/)) { return "comment"; }
