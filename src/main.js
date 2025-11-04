@@ -46,6 +46,8 @@ window.libraryFiles = window.libraryFiles || {};
 window.completionWords = window.completionWords || {};
 let lastBytecode = "";
 
+const STORAGE_KEY = 'ropIdeSourceCode'
+
 const loadingStatusElement = document.getElementById('loading-status');
 const INITIAL_LIBRARIES = [
 'basic-991cnx-verc.ggt',
@@ -337,7 +339,8 @@ const myCustomHighlight = StreamLanguage.define({
         if (stream.match(/\$[^ \t\r\n(]+/)) { return "keyword"; }
         if (stream.match(/\*[^ \t\r\n(]+/)) { return "operatorKeyword"; }
         if (stream.match(/![^ \t\r\n(]+/)) { return "color"; }
-        if (stream.match(/#[a-zA-Z0-9_#]+/)) { return "string"; }
+        if (stream.match(/#[a-zA-Z0-9_]+/)) { return "string"; }
+        if (stream.match(/##[a-zA-Z0-9_]+/)) { return "string"; }
         if (stream.match(/^([0-9a-fA-FXx]{2})+/)) { return "string"; }
         if (stream.match(/^@[a-zA-Z0-9_=.]+/)) { return "variableName"; }
         if (stream.match(/^\/\/.*/)) { return "comment"; }
@@ -356,7 +359,7 @@ const myCompletions = (context) => {
     if (!window.completionWords) return null;
     
     // 匹配 $!@* 开头，后面跟着字母数字、下划线、以及 ?, &, . 等符号，直到遇到空格或 ;
-    let word = context.matchBefore(/[$!@*#|a-zA-Z0-9_][^ \t\n;]*/);
+    let word = context.matchBefore(/[$!@*#a-zA-Z0-9_][^ \t\n;]*/);
 
     if (!word || (word.from === word.to && !context.explicit)) {
         if (!context.explicit) return null;
@@ -581,6 +584,13 @@ const liveUpdateExtension = EditorView.updateListener.of((update) => {
     if (update.docChanged) {
         const currentCode = update.state.doc.toString();
         
+        // 【修改点 1：新增本地保存逻辑】
+        try {
+            localStorage.setItem(STORAGE_KEY, currentCode); //
+        } catch (e) {
+            console.error("无法保存代码到本地存储:", e);
+        }
+        
         // 【新增/修改】提取 import 列表
         const importedFiles = extractImports(currentCode); 
         
@@ -613,16 +623,17 @@ const extensions = [
     liveUpdateExtension
 ];
 
-// 初始代码
-const initialDoc = `//欢迎使用ROP-IDE
+const savedCode = localStorage.getItem(STORAGE_KEY); 
+const initialDoc = savedCode || `//欢迎使用ROP-IDE
 //别忘了先用import导入库文件
 `;
 
 
 // 创建编辑器实例
 const editorView = new EditorView({
+// ... (CodeMirror 实例化逻辑保持不变) ...
     state: EditorState.create({
-        doc: initialDoc,
+        doc: initialDoc, // 使用加载或默认的代码
         extensions: extensions
     }),
     parent: document.getElementById("editor-container")

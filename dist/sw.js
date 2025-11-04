@@ -9,7 +9,7 @@ const CORE_CACHE_ASSETS = [
     '/assets/manifest-CksoMjeB.json', // 新增：PWA Manifest 文件
     
     // 【新增】本地应用资源 (从 index.html 发现)
-    '/src/compiler.py', 
+    '/compiler.py', 
     '/assets/index-f2oZCQHj.js', // 修正路径以匹配 index.html
     '/vendor/pyscript/dist/core.css',
     '/vendor/pyscript/dist/core.js',
