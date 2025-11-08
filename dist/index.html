@@ -23,7 +23,7 @@
             flex-direction: column;
             height: 100vh;
             background-color: #21252b; /* 深色背景 */
-            font-size: 20px
+            font-size: 14px
         }
 
         /* 工具栏 */
@@ -119,6 +119,7 @@
             font-family: monospace;
             white-space: pre-wrap;
             color: #abb2bf;
+            font-size: 14px;
         }
         #library-viewer {
             padding: 10px;
@@ -237,19 +238,19 @@
             overflow-x: auto;
         }
     </style>
-  <script type="module" crossorigin src="./assets/index-DgGbeakK.js"></script>
+  <script type="module" crossorigin src="./assets/index-GwEOs2VI.js"></script>
 </head>
 <body>
     
     <div class="toolbar">
         <input type="file" id="file-importer" multiple style="display: none;">
         <button id="import-btn">导入自定义配置</button>
-        <button id="compile-btn">初始化中...</button>
+        <button id="compile-btn">准备启动……</button>
         <button id="export-source-btn">导出源代码</button>
         <button id="export-bytecode-btn">导出字节码</button>
         
         <button id="force-update-btn">
-            <span id="update-status">正在检查更新...</span>
+            <span id="update-status">正在检查更新……</span>
         </button> 
         
         <button id="show-tutorial-btn">语法教程</button>
@@ -274,7 +275,7 @@
                 <select id="bytecode-selector">
                     <option value="">-- 请先编译 --</option>
                 </select>
-                <pre id="bytecode-content-display">编译结果将显示在此处...</pre>
+                <pre id="bytecode-content-display">编译结果将显示在此处……</pre>
             </div>
 
             <div id="library-viewer" class="output-content">
@@ -295,7 +296,7 @@
     <div id="tutorial-modal">
         <div id="tutorial-content-wrapper">
             <h2>语法教程</h2>
-            <div id="tutorial-content">正在加载教程...</div>
+            <div id="tutorial-content">正在加载教程……</div>
             <button id="close-modal-btn" class="toolbar-button">关闭</button>
         </div>
     </div>

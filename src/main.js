@@ -380,7 +380,7 @@ const myCompletions = (context) => {
             let enhancedDetail = item.detail || '';
             
             // RT 标记修改：[RT] -> *rt*
-            if (item.rt) { enhancedDetail = `*rt* ${enhancedDetail}`; }
+            if (item.rt) { enhancedDetail = `[RT] ${enhancedDetail}`; }
             
             options.push({ 
                 label: item.label, 
@@ -396,7 +396,7 @@ const myCompletions = (context) => {
          for (const key in allWords) {
             const item = allWords[key];
             let enhancedDetail = item.detail || '';
-            if (item.rt) { enhancedDetail = `*rt* ${enhancedDetail}`; }
+            if (item.rt) { enhancedDetail = `[RT] ${enhancedDetail}`; }
             options.push({ label: item.label, type: item.type, detail: enhancedDetail, score: 0 });
         }
     }
@@ -1116,7 +1116,7 @@ if (closeModalBtn) {
 // ----------------------------------------------------------------------
 
 // ** 请确保此版本号与 sw.js 中的版本号同步 **
-const LOCAL_VERSION = 'v6.0.0'; 
+const LOCAL_VERSION = 'v6.0.2'; 
 const VERSION_CHECK_URL = '/version'; 
 
 // DOM 元素 (需在 DOMContentLoaded 或 load 事件后才能获取)
@@ -1145,6 +1145,7 @@ function compareVersions(v1, v2) {
     return 0;
 }
 
+let svrversion = "null"
 /**
  * 检查应用版本并更新 UI 提示
  */
@@ -1152,7 +1153,7 @@ async function checkAppVersion() {
     console.log(`[Version] 本地版本: ${LOCAL_VERSION}`);
     if (!updateStatusElement) return; // 确保元素存在
 
-    updateStatusElement.textContent = '正在检查更新...';
+    updateStatusElement.textContent = '正在检查更新……';
     forceUpdateBtn.disabled = true;
     
     try {
@@ -1165,20 +1166,21 @@ async function checkAppVersion() {
         
         const data = await response.json();
         const serverVersion = data.version;
+        svrversion = serverVersion
         
         const comparison = compareVersions(serverVersion, LOCAL_VERSION);
 
         if (comparison > 0) {
             // 服务器版本 > 本地版本 (更新可用)
-            updateStatusElement.textContent = `更新 (可用 ${serverVersion})`;
-            forceUpdateBtn.style.backgroundColor = '#d9534f'; // 红色提示
+            updateStatusElement.textContent = `更新 (${serverVersion}可用) ${LOCAL_VERSION}`;
+            forceUpdateBtn.style.backgroundColor = '#36cc9fff'; 
             forceUpdateBtn.disabled = false;
             console.log(`[Version] 新版本 ${serverVersion} 可用！`);
         } else { // comparison <= 0
             // 已是最新版本 或 版本号异常
-            updateStatusElement.textContent = `更新 (已是最新 ${LOCAL_VERSION})`;
-            forceUpdateBtn.style.backgroundColor = '#5cb85c'; // 绿色提示
-            forceUpdateBtn.disabled = true; // 已经是最新，禁用更新按钮
+            updateStatusElement.textContent = `更新 (已是最新) ${serverVersion}`;
+            forceUpdateBtn.style.backgroundColor = '#528bff'; 
+            forceUpdateBtn.disabled = false;
             console.log(`[Version] 已是最新版本 ${LOCAL_VERSION}。`);
         }
 
@@ -1187,13 +1189,13 @@ async function checkAppVersion() {
         
         // 检查是否离线 (常见错误是网络请求失败)
         if (!navigator.onLine || error.message.includes('fetch') || error.message.includes('network')) {
-            updateStatusElement.textContent = `更新 (已离线 ${LOCAL_VERSION})`;
+            updateStatusElement.textContent = `更新 (已离线) ${LOCAL_VERSION}`;
             forceUpdateBtn.style.backgroundColor = '#777'; // 灰色
             forceUpdateBtn.disabled = true; 
         } else {
             // 联网但检查失败 (服务器问题或 version 格式错误)
             updateStatusElement.textContent = `更新 (检查失败)`;
-            forceUpdateBtn.style.backgroundColor = '#f0ad4e'; // 黄色警告
+            forceUpdateBtn.style.backgroundColor = '#f04e4eff'; 
             forceUpdateBtn.disabled = true;
         }
     }
@@ -1204,7 +1206,7 @@ async function checkAppVersion() {
  * 强制刷新页面：使用 Service Worker 的更新机制和 SKIP_WAITING。
  */
 async function forceAppUpdate() {
-    const confirmed = confirm(`应用正在检查并更新新版本 (当前版本: ${LOCAL_VERSION})，确认？`);
+    const confirmed = confirm(`应用将更新新版本 (当前版本: ${LOCAL_VERSION}，更新版本: ${svrversion})，确认？`);
     
     if (confirmed) {
         if ('serviceWorker' in navigator) {
@@ -1251,4 +1253,3 @@ window.addEventListener('load', checkAppVersion);
 if (forceUpdateBtn) {
     forceUpdateBtn.addEventListener('click', forceAppUpdate);
 }
-// ... (其他原有 main.js 逻辑保持不变) ...
