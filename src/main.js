@@ -427,7 +427,7 @@ const myLinter = linter(view => {
     
     // 匹配十六进制字符串 (不以 $!*#@开头)
     // 使用全局匹配，以便在行内多次查找
-    const hexRegex = /(?<![a-zA-Z_$*!#@])\b[0-9a-fA-F]+\b/g; 
+    const hexRegex = /(?<![a-zA-Z_$*!#@.])\b[0-9a-fA-FXx]+\b/g; 
 
     // --- 行级检测 ---
     lines.forEach((line, i) => {
@@ -1106,3 +1106,147 @@ if (closeModalBtn) {
         tutorialModal.style.display = 'none';
     });
 }
+
+// main.js (在全局状态变量定义附近或文件顶部)
+
+// ----------------------------------------------------------------------
+// 【新增】版本控制与更新 UI 逻辑
+// ----------------------------------------------------------------------
+
+// ** 请确保此版本号与 sw.js 中的版本号同步 **
+const LOCAL_VERSION = 'v2.5.2'; 
+const VERSION_CHECK_URL = '/version'; 
+
+// DOM 元素 (需在 DOMContentLoaded 或 load 事件后才能获取)
+const updateStatusElement = document.getElementById('update-status');
+const forceUpdateBtn = document.getElementById('force-update-btn');
+
+
+/**
+ * 比较两个版本字符串 (例如 v2.5.0 vs v2.5.2)
+ * @returns 1 (new > old), 0 (new == old), -1 (new < old)
+ */
+function compareVersions(v1, v2) {
+    if (!v1 || !v2) return 0;
+    
+    // 移除 'v' 前缀并按点分割
+    const v1Parts = v1.replace(/^v/i, '').split('.').map(Number);
+    const v2Parts = v2.replace(/^v/i, '').split('.').map(Number);
+
+    for (let i = 0; i < Math.max(v1Parts.length, v2Parts.length); i++) {
+        const p1 = v1Parts[i] || 0;
+        const p2 = v2Parts[i] || 0;
+        
+        if (p1 > p2) return 1;
+        if (p1 < p2) return -1;
+    }
+    return 0;
+}
+
+/**
+ * 检查应用版本并更新 UI 提示
+ */
+async function checkAppVersion() {
+    console.log(`[Version] 本地版本: ${LOCAL_VERSION}`);
+    if (!updateStatusElement) return; // 确保元素存在
+
+    updateStatusElement.textContent = '正在检查更新...';
+    forceUpdateBtn.disabled = true;
+    
+    try {
+        // 使用 cache: 'no-store' 确保绕过 HTTP 缓存，获取最新的版本文件
+        const response = await fetch(VERSION_CHECK_URL, { cache: 'no-store' }); 
+        
+        if (!response.ok) {
+            throw new Error(`无法访问版本文件 (${response.status} ${response.statusText})`);
+        }
+        
+        const data = await response.json();
+        const serverVersion = data.version;
+        
+        const comparison = compareVersions(serverVersion, LOCAL_VERSION);
+
+        if (comparison > 0) {
+            // 服务器版本 > 本地版本 (更新可用)
+            updateStatusElement.textContent = `更新 (可用 ${serverVersion})`;
+            forceUpdateBtn.style.backgroundColor = '#d9534f'; // 红色提示
+            forceUpdateBtn.disabled = false;
+            console.log(`[Version] 新版本 ${serverVersion} 可用！`);
+        } else { // comparison <= 0
+            // 已是最新版本 或 版本号异常
+            updateStatusElement.textContent = `更新 (已是最新 ${LOCAL_VERSION})`;
+            forceUpdateBtn.style.backgroundColor = '#5cb85c'; // 绿色提示
+            forceUpdateBtn.disabled = true; // 已经是最新，禁用更新按钮
+            console.log(`[Version] 已是最新版本 ${LOCAL_VERSION}。`);
+        }
+
+    } catch (error) {
+        console.error('[Version] 检查版本失败:', error.message);
+        
+        // 检查是否离线 (常见错误是网络请求失败)
+        if (!navigator.onLine || error.message.includes('fetch') || error.message.includes('network')) {
+            updateStatusElement.textContent = `更新 (已离线 ${LOCAL_VERSION})`;
+            forceUpdateBtn.style.backgroundColor = '#777'; // 灰色
+            forceUpdateBtn.disabled = true; 
+        } else {
+            // 联网但检查失败 (服务器问题或 version 格式错误)
+            updateStatusElement.textContent = `更新 (检查失败)`;
+            forceUpdateBtn.style.backgroundColor = '#f0ad4e'; // 黄色警告
+            forceUpdateBtn.disabled = true;
+        }
+    }
+}
+
+
+/**
+ * 强制刷新页面：使用 Service Worker 的更新机制和 SKIP_WAITING。
+ */
+async function forceAppUpdate() {
+    const confirmed = confirm(`应用正在检查并更新新版本 (当前版本: ${LOCAL_VERSION})，确认？`);
+    
+    if (confirmed) {
+        if ('serviceWorker' in navigator) {
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                
+                if (registration) {
+                    // 1. 强制 Service Worker 检查新版本
+                    registration.update(); 
+                    console.log('SW 更新检查已触发。');
+                    
+                    // 2. 如果有新的 SW 正在等待，发送消息强制它立即激活 (需 sw.js 支持)
+                    if (registration.waiting) {
+                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                        console.log('发送 SKIP_WAITING 消息。');
+                    }
+                    
+                    // 3. 延迟刷新页面，给 Service Worker 留出激活时间
+                    setTimeout(() => {
+                        console.log('SW 激活完成，执行刷新。');
+                        window.location.reload(); 
+                    }, 100); // 100ms 足够安全
+
+                } else {
+                    // 没有注册 SW，直接硬刷新
+                    window.location.href = window.location.href.split('?')[0] + '?force_reload=' + Date.now();
+                }
+
+            } catch (error) {
+                console.error('Service Worker 更新流程失败:', error);
+                window.location.href = window.location.href.split('?')[0] + '?force_reload_fallback=' + Date.now();
+            }
+        } else {
+             window.location.href = window.location.href.split('?')[0] + '?force_reload=' + Date.now();
+        }
+    }
+}
+
+
+// 【重要】在页面加载后调用版本检查函数
+window.addEventListener('load', checkAppVersion);
+
+// 绑定事件监听器
+if (forceUpdateBtn) {
+    forceUpdateBtn.addEventListener('click', forceAppUpdate);
+}
+// ... (其他原有 main.js 逻辑保持不变) ...

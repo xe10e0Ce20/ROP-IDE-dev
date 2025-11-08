@@ -237,7 +237,7 @@
             overflow-x: auto;
         }
     </style>
-  <script type="module" crossorigin src="./assets/index-DwUG8ZPh.js"></script>
+  <script type="module" crossorigin src="./assets/index-BqzeYuwx.js"></script>
 </head>
 <body>
     
@@ -247,6 +247,10 @@
         <button id="compile-btn">初始化中...</button>
         <button id="export-source-btn">导出源代码</button>
         <button id="export-bytecode-btn">导出字节码</button>
+        
+        <button id="force-update-btn">
+            <span id="update-status">正在检查更新...</span>
+        </button> 
         
         <button id="show-tutorial-btn">语法教程</button>
         
@@ -286,7 +290,7 @@
         packages = ["lark"]
     </py-config>
 
-    <py-script src="/public/compiler.py"></py-script>
+    <py-script src="./compiler.py"></py-script>
 
     <div id="tutorial-modal">
         <div id="tutorial-content-wrapper">

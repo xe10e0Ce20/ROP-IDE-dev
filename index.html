@@ -248,6 +248,10 @@
         <button id="export-source-btn">导出源代码</button>
         <button id="export-bytecode-btn">导出字节码</button>
         
+        <button id="force-update-btn">
+            <span id="update-status">正在检查更新...</span>
+        </button> 
+        
         <button id="show-tutorial-btn">语法教程</button>
         
         <span>项目名: <input type="text" id="project-name" value="ROP_Project"></span>
@@ -286,7 +290,7 @@
         packages = ["lark"]
     </py-config>
 
-    <py-script src="/public/compiler.py"></py-script>
+    <py-script src="./compiler.py"></py-script>
 
     <div id="tutorial-modal">
         <div id="tutorial-content-wrapper">
