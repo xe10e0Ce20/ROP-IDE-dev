@@ -231,7 +231,9 @@ function buildCompletionWords(sourceCode, libraryFiles = {}, importedFileNames =
         '@adr.': { label: '@adr.', detail: '定义地址标签', type: assignCompletionType('@') },
         '@block.': { label: '@block.', detail: '开始一个代码块', type: assignCompletionType('@') },
         '@blockend': { label: '@blockend', detail: '结束代码块', type: assignCompletionType('@') },
-        '@offset=': { label: '@offset=', detail: '定义内存偏移量', type: assignCompletionType('@') },
+        '@end': { label: '@end', detail: '结束代码块，等效于@blockend', type: assignCompletionType('@') },
+        '@rstoffst': { label: '@rstoffst', detail: '从此处开始地址从0000开始重新计算', type: assignCompletionType('@') },
+        '@offset=': { label: '@offset=', detail: '定义地址偏移量', type: assignCompletionType('@') },
         '@overwrite': { label: '@overwrite', detail: '覆写', type: assignCompletionType('@') }
     };
     Object.assign(newWords, staticWords);
@@ -1114,7 +1116,7 @@ if (closeModalBtn) {
 // ----------------------------------------------------------------------
 
 // ** 请确保此版本号与 sw.js 中的版本号同步 **
-const LOCAL_VERSION = 'v2.5.2'; 
+const LOCAL_VERSION = 'v6.0.0'; 
 const VERSION_CHECK_URL = '/version'; 
 
 // DOM 元素 (需在 DOMContentLoaded 或 load 事件后才能获取)

@@ -117,7 +117,7 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
             spf_def: "def" SPF_NAME "(" params ")" "{" brace_block "}"
             cpf_def: "def" CPF_NAME "(" params ")" "{%%BODY%%}" "{" brace_block "}"
 
-            block: "@block" "." CNAME ":" BLOCK_CONTENT "@blockend"
+            block: "@block" "." CNAME ":" BLOCK_CONTENT "@blockend" | "@block" "." CNAME ":" BLOCK_CONTENT "@end"
 
             brace_block: (brace_block_nested | ANY_CHAR)+
             brace_block_nested: "{" brace_block "}"
@@ -414,6 +414,7 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
             overwrite: "@overwrite" "(" ANY_STRING "," ANY_STRING ")"
 
             offset_def: "@offset" "=" FOUR_BYTE
+            rstoffst: "@rstoffst"
             x_def: "@x" "=" HALF_BYTE
             label_def: "@adr" "." CNAME
 
@@ -457,6 +458,8 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
                 return ""
             def offset_def(self, items):
                 return f" @offset={items[0]} "
+            def rstoffst(self, token):
+                return " @rstoffst "
             def x_def(self, items):
                 return ""
             
@@ -542,6 +545,7 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
             label_def: "@adr" "." CNAME
             HEX_DATA: /[0-9a-fA-F]{2}/
             offset_def: "@offset" "=" FOUR_BYTE
+            rstoffst: "@rstoffst"
             FOUR_BYTE: /[0-9a-fA-F]{4}/
 
             COMMENT: /(\/\/|;)[^\n]*/
@@ -566,6 +570,9 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
             
             def offset_def(self, items):
                 self.offset = int(items[0], 16)
+                return None
+            def rstoffst(self, token):
+                self.byte_count = 0
                 return None
             def label_def(self, items):
                 label_name = items[0]
@@ -594,6 +601,7 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
             overwrite: "@overwrite" "(" expr "," expr ")"
 
             offset_def: "@offset" "=" FOUR_BYTE
+            rstoffst: "@rstoffst"
             x_def: "@x" "=" HALF_BYTE
             label_def: "@adr" "." CNAME
 
@@ -636,6 +644,8 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
                 self.overwrite_map[items[0]] = items[1]
                 return ""
             def offset_def(self, items):
+                return ""
+            def  rstoffst(self, token):
                 return ""
             def x_def(self, items):
                 self.x_placeholder = items[0]
