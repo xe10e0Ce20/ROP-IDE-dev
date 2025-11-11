@@ -14,6 +14,20 @@
     <link rel="stylesheet" href="./vendor/pyscript/dist/core.css" />
     <script type="module" src="./vendor/pyscript/dist/core.js"></script>
 
+    <script>
+        if ('serviceWorker' in navigator) {
+            // 立即注册，不等待 load 事件
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                .then(registration => {
+                    console.log('Service Worker 注册成功，作用域: ', registration.scope);
+                })
+                .catch(error => {
+                    console.error('Service Worker 注册失败: ', error);
+                });
+        }
+        var LOCAL_VERSION = 'v6.0.2';
+    </script>
+
     <style>
         /* 基础布局 */
         body {
@@ -238,7 +252,7 @@
             overflow-x: auto;
         }
     </style>
-  <script type="module" crossorigin src="./assets/index-GwEOs2VI.js"></script>
+  <script type="module" crossorigin src="./assets/index-DH8Z11ee.js"></script>
 </head>
 <body>
     

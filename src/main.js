@@ -1,20 +1,5 @@
 // src/main.js
 
-
-// main.js (必须在所有 PyScript 逻辑之前执行)
-if ('serviceWorker' in navigator) {
-    // 使用 load 事件确保在页面完全加载前尝试注册
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js', { scope: '/' })
-            .then(registration => {
-                console.log('Service Worker 注册成功，作用域: ', registration.scope);
-            })
-            .catch(error => {
-                console.error('Service Worker 注册失败: ', error);
-            });
-    });
-}
-
 // ----------------------------------------------------------------------
 // 步骤 1: 导入所有 CodeMirror 模块
 // ----------------------------------------------------------------------
@@ -1116,7 +1101,7 @@ if (closeModalBtn) {
 // ----------------------------------------------------------------------
 
 // ** 请确保此版本号与 sw.js 中的版本号同步 **
-const LOCAL_VERSION = 'v6.0.2'; 
+ 
 const VERSION_CHECK_URL = '/version'; 
 
 // DOM 元素 (需在 DOMContentLoaded 或 load 事件后才能获取)

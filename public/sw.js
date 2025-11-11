@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------
 // 【重要】请确保每次修改后更新此版本号
 // ----------------------------------------------------------------------
-const VERSION = 'v2.5.6'; 
+const VERSION = 'v2.6.0'; 
 const CACHE_NAME = `pwa-offline-cache-${VERSION}`;
 
 // 【核心缓存文件列表】: 补充所有本地依赖文件 (与您提供的列表一致)
@@ -113,6 +113,8 @@ self.addEventListener('message', (event) => {
 // -----------------------------------------------------------------
 // 4. FETCH: 缓存优先策略 + 重定向 + 忽略查询参数
 // -----------------------------------------------------------------
+// sw.js (替换 FETCH 监听器)
+
 self.addEventListener('fetch', (event) => {
     const requestUrl = event.request.url;
     let newUrl = null;
@@ -123,7 +125,6 @@ self.addEventListener('fetch', (event) => {
         if (requestUrl.includes(originalSegment)) {
             intercepted = true;
             
-            // 构建 newUrl 的逻辑 (保持不变)
             if (originalSegment.startsWith('http')) {
                 newUrl = targetPath;
             } else if (originalSegment.includes('pypi.org')) {
@@ -136,19 +137,15 @@ self.addEventListener('fetch', (event) => {
         }
     }
     
-    // --- 2. 离线缓存处理 (重点修改部分) ---
+    // --- 2. 离线缓存处理 (修正版) ---
     
     let cacheKeyRequest = intercepted ? new Request(newUrl) : event.request;
     const url = new URL(cacheKeyRequest.url);
     
-    // **【核心修复】**：针对根路径或首页请求，忽略所有查询参数
+    // 针对根路径或首页请求，忽略所有查询参数
     if (url.pathname === '/' || url.pathname === '/index.html') {
-        // 强制缓存键为无查询参数的 /index.html 或 /
-        // 确保使用预缓存的键，即 '/'
         cacheKeyRequest = new Request('/'); 
     } 
-    // 其他请求（如 main.js）如果带有 ?force_reload 参数，
-    // 我们信任它们会失败然后使用网络，或者 Service Worker 缓存已经正确。
     
     event.respondWith(
         caches.match(cacheKeyRequest).then(cachedResponse => {
@@ -161,18 +158,30 @@ self.addEventListener('fetch', (event) => {
 
             // B. 缓存未命中：执行网络请求 (网络优先)
             
-            // 如果被拦截，使用 newUrl 和 CORS 模式发起网络请求
-            if (intercepted) {
-                console.debug(`[SW-NETWORK] 重定向并从网络获取: ${newUrl}`);
-                return fetch(newUrl, { mode: 'cors' });
-            } 
+            // 确定要发起的网络请求对象
+            const networkRequest = intercepted ? new Request(newUrl) : event.request;
             
-            // 如果是应用自身的请求（未被拦截），正常从网络获取
-            return fetch(event.request).catch(error => {
-                 console.error(`[SW-OFFLINE] 网络请求失败: ${event.request.url} 无法从缓存或网络获取。`, error);
-                 // 离线时，如果请求的资源未被缓存 (不在 CORE_CACHE_ASSETS 中)，则返回离线提示
-                 return new Response("应用离线，且该资源未被缓存。", { status: 503, statusText: "Offline" });
-            });
+            console.debug(`[SW-NETWORK] 从网络获取: ${networkRequest.url}`);
+
+            // 【关键修复】：不使用 'mode: 'cors''，因为 newUrl 是同源请求
+            return fetch(networkRequest) 
+                .then(networkResponse => {
+                    
+                    // 检查响应是否有效：只缓存 200 状态码
+                    if (networkResponse && networkResponse.status === 200) {
+                        const responseToCache = networkResponse.clone();
+                        caches.open(CACHE_NAME).then(cache => {
+                            // 使用确定的缓存键 (cacheKeyRequest) 存储响应
+                            cache.put(cacheKeyRequest, responseToCache); 
+                        });
+                    }
+                    
+                    return networkResponse;
+                })
+                .catch(error => {
+                     console.error(`[SW-OFFLINE] 网络请求失败: ${networkRequest.url} 无法从缓存或网络获取。`, error);
+                     return new Response("应用离线，且该资源未被缓存。", { status: 503, text: "Offline" });
+                });
         })
     );
 });
