@@ -414,7 +414,7 @@ const myLinter = linter(view => {
     
     // 匹配十六进制字符串 (不以 $!*#@开头)
     // 使用全局匹配，以便在行内多次查找
-    const hexRegex = /(?<![a-zA-Z_$*!#@.])\b[0-9a-fA-FXx]+\b/g; 
+    const hexRegex = /(?<![a-zA-Z_$*!#@.=])\b[0-9a-fA-FXx]+\b/g; 
 
     // --- 行级检测 ---
     lines.forEach((line, i) => {
@@ -444,7 +444,7 @@ const myLinter = linter(view => {
                 const hexString = hexMatch[0];
                 
                 // 确保我们只处理偶数长度的十六进制字符串（代表字节）
-                if (hexString.length > 1 && hexString.length % 2 !== 0) {
+                if ( hexString.length % 2 !== 0) {
                     
                     // 计算在原始行中的起始位置
                     // 注意：这里的 match.index 是在 nonCommentText 中的索引
@@ -1157,7 +1157,7 @@ async function checkAppVersion() {
 
         if (comparison > 0) {
             // 服务器版本 > 本地版本 (更新可用)
-            updateStatusElement.textContent = `更新 (${serverVersion}可用) ${LOCAL_VERSION}`;
+            updateStatusElement.textContent = `更新 ${serverVersion}→${LOCAL_VERSION}`;
             forceUpdateBtn.style.backgroundColor = '#36cc9fff'; 
             forceUpdateBtn.disabled = false;
             console.log(`[Version] 新版本 ${serverVersion} 可用！`);
@@ -1188,10 +1188,13 @@ async function checkAppVersion() {
 
 
 /**
- * 强制刷新页面：使用 Service Worker 的更新机制和 SKIP_WAITING。
+ * 强制刷新页面：通过监听 SW 状态变化来确保新版本被激活后才刷新。
  */
 async function forceAppUpdate() {
-    const confirmed = confirm(`应用将更新新版本 (当前版本: ${LOCAL_VERSION}，更新版本: ${svrversion})，确认？`);
+    
+    // 【保留】确认对话框
+    const REFRESH_MESSAGE = '发现新版本！此操作将清除所有应用缓存并强制刷新，确认？';
+    const confirmed = confirm(REFRESH_MESSAGE);
     
     if (confirmed) {
         if ('serviceWorker' in navigator) {
@@ -1200,28 +1203,46 @@ async function forceAppUpdate() {
                 
                 if (registration) {
                     // 1. 强制 Service Worker 检查新版本
+                    // 这一步会触发 'updatefound' 事件
                     registration.update(); 
-                    console.log('SW 更新检查已触发。');
+                    console.log('SW 更新检查已触发，等待新版本安装...');
                     
-                    // 2. 如果有新的 SW 正在等待，发送消息强制它立即激活 (需 sw.js 支持)
-                    if (registration.waiting) {
-                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                        console.log('发送 SKIP_WAITING 消息。');
-                    }
+                    // ----------------------------------------------------
+                    // 【关键修复点】：监听 updatefound 事件
+                    // ----------------------------------------------------
+                    registration.addEventListener('updatefound', () => {
+                        const installingWorker = registration.installing;
+                        
+                        // 监听新 worker 的状态变化
+                        installingWorker.addEventListener('statechange', () => {
+                            
+                            // 状态 1: installed (安装完成，进入等待)
+                            if (installingWorker.state === 'installed') {
+                                
+                                // 此时，发送消息强制它立即激活 (调用 sw.js 中的 skipWaiting)
+                                // 必须在新 worker 身上调用 postMessage
+                                installingWorker.postMessage({ type: 'SKIP_WAITING' });
+                                console.log('新 SW 安装完成，发送 SKIP_WAITING 消息。');
+
+                            // 状态 2: activated (新 worker 激活成功)
+                            } else if (installingWorker.state === 'activated') {
+                                // 此时新 SW 已接管控制权，刷新页面即可加载新资源
+                                console.log('新 SW 激活完成，执行页面刷新。');
+                                window.location.reload(); 
+                            }
+                        });
+                    });
                     
-                    // 3. 延迟刷新页面，给 Service Worker 留出激活时间
-                    setTimeout(() => {
-                        console.log('SW 激活完成，执行刷新。');
-                        window.location.reload(); 
-                    }, 100); // 100ms 足够安全
+                    // 【移除】原来的 if (registration.waiting) 检查和 setTimeout
 
                 } else {
-                    // 没有注册 SW，直接硬刷新
+                    // 没有注册 SW，直接硬刷新 (Fallback)
                     window.location.href = window.location.href.split('?')[0] + '?force_reload=' + Date.now();
                 }
 
             } catch (error) {
                 console.error('Service Worker 更新流程失败:', error);
+                // 终极 fallback
                 window.location.href = window.location.href.split('?')[0] + '?force_reload_fallback=' + Date.now();
             }
         } else {

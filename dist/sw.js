@@ -1,25 +1,26 @@
-// sw.js
 // ----------------------------------------------------------------------
 // 【重要】请确保每次修改后更新此版本号
 // ----------------------------------------------------------------------
-const VERSION = 'v2.6.0'; 
+const VERSION = 'v2.6.6'; // 已更新版本号，触发SW更新
 const CACHE_NAME = `pwa-offline-cache-${VERSION}`;
 
-// 【核心缓存文件列表】: 补充所有本地依赖文件 (与您提供的列表一致)
-const CORE_CACHE_ASSETS = [
-    '/', 
-    '/index.html', 
-    '/assets/manifest-CksoMjeB.json', 
-    
+// 【关键优化1：最小化预缓存（仅2个文件，秒级安装）】
+const MINIMAL_CACHE_ASSETS = [
+    '/', // 网站根目录
+    '/index.html' // 入口页面
+];
+
+// 【关键优化2：延迟缓存的资源（激活后后台异步缓存）】
+const DELAYED_CACHE_ASSETS = [
     // 本地应用资源
     '/compiler.py', 
-    '/assets/index-DDRaXYDt.js', // 假设这是您最新的 JS 文件的正确路径
+    '/assets/index-DH8Z11ee.js',
     '/vendor/pyscript/dist/core.css',
     '/vendor/pyscript/dist/core.js',
     '/vendor/marked/marked.min.js',
     '/README.md',
     
-    // main.js 中预加载的初始库文件
+    // 初始库文件
     '/vendor/libraries/basic-991cnx-verc.ggt', 
     '/vendor/libraries/basic-common.macro', 
     
@@ -39,149 +40,139 @@ const CORE_CACHE_ASSETS = [
     '/vendor/pyscript/dist/error-e4fe78fd.js',
     '/vendor/pyodide/pyodide/pyodide.mjs',
     '/favicon.ico',
-
     '/icon-192x192.png',
     '/icon-512x512.png',
 ];
 
-const REDIRECT_MAP = {
-    // 1. Pyodide 核心文件
-    'cdn.jsdelivr.net/pyodide/v0.23.4/full/': '/vendor/pyodide/pyodide/',
-
-    // 2. toml.js 
-    'cdn.jsdelivr.net/npm/@webreflection/toml-j0.4/toml.js': '/vendor/toml/toml.js',
-    'cdn.jsdelivr.net/npm/@webreflection/toml-j0.4/toml.js.map': '/vendor/toml/toml.js.map',
-
-    // 3. Lark Wheel 文件
-    'lark-1.3.1-py3-none-any.whl': '/vendor/pypi/lark-1.3.1-py3-none-any.whl',
-    'pypi.org/pypi/lark/json' : '/vendor/pypi/lark/json.json'
-};
-
+// 【重定向规则数组】
+const REDIRECT_RULES = [
+    ["cdn.jsdelivr.net/npm/@webreflection/toml-j0.4/toml.js", "/vendor/toml/toml.js"],
+    ["cdn.jsdelivr.net/npm/@webreflection/toml-j0.4/toml.js.map", "/vendor/toml/toml.js.map"],
+    ["lark-1.3.1-py3-none-any.whl", "/vendor/pypi/lark-1.3.1-py3-none-any.whl"],
+    ["pypi.org/pypi/lark/json", "/vendor/pypi/lark/json.json"],
+    ["cdn.jsdelivr.net/pyodide/v0.23.4/full/", "/vendor/pyodide/pyodide/"]
+];
 
 // -----------------------------------------------------------------
-// 1. INSTALL: 预缓存所有核心资源
+// 1. INSTALL: 仅缓存最小化资源，秒级完成安装
 // -----------------------------------------------------------------
 self.addEventListener('install', (event) => {
-    console.log(`[SW] Version ${VERSION} installing. Pre-caching assets.`);
+    console.log(`[SW] Version ${VERSION} installing (最小化预缓存)...`);
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                return cache.addAll(CORE_CACHE_ASSETS);
+                return cache.addAll(MINIMAL_CACHE_ASSETS); // 仅缓存2个文件
             })
             .then(() => {
-                // 允许新的 Service Worker 跳过等待阶段，尽快接管控制权
-                return self.skipWaiting(); 
+                console.log(`[SW] 最小化缓存完成，立即激活！`);
+                self.skipWaiting(); // 跳过等待，秒级激活
             })
             .catch(error => {
-                console.error('[SW] 核心文件预缓存失败:', error);
+                console.error('[SW] 最小化缓存失败:', error);
             })
     );
 });
 
-
 // -----------------------------------------------------------------
-// 2. ACTIVATE: 清理旧缓存
+// 2. ACTIVATE: 清理旧缓存 + 后台异步缓存剩余资源
 // -----------------------------------------------------------------
 self.addEventListener('activate', (event) => {
-    console.log(`[SW] Version ${VERSION} activating. Cleaning up old caches.`);
+    console.log(`[SW] Version ${VERSION} activating...`);
     event.waitUntil(
+        // 第一步：清理旧缓存
         caches.keys().then(cacheNames => {
             return Promise.all(
                 cacheNames.map(cacheName => {
                     if (cacheName !== CACHE_NAME) {
+                        console.log(`[SW] 删除旧缓存: ${cacheName}`);
                         return caches.delete(cacheName);
                     }
                 })
             );
-        }).then(() => self.clients.claim())
+        })
+        .then(() => {
+            console.log(`[SW] 成功接管所有页面，开始后台缓存剩余资源...`);
+            self.clients.claim(); // 立即接管所有页面
+            
+            // 第二步：后台异步缓存剩余资源（不阻塞激活流程）
+            caches.open(CACHE_NAME).then(cache => {
+                cache.addAll(DELAYED_CACHE_ASSETS)
+                    .then(() => {
+                        console.log(`[SW] 所有资源后台缓存完成！`);
+                    })
+                    .catch(error => {
+                        console.error(`[SW] 后台缓存部分资源失败:`, error);
+                    });
+            });
+        })
     );
 });
 
-
 // -----------------------------------------------------------------
-// 3. MESSAGE: 监听来自页面的强制激活指令
+// 3. MESSAGE: 监听强制激活指令
 // -----------------------------------------------------------------
 self.addEventListener('message', (event) => {
-    // 允许主线程发送 'SKIP_WAITING' 消息，强制新 SW 激活
     if (event.data && event.data.type === 'SKIP_WAITING') {
-        console.log('[SW-SKIP] 接收到 SKIP_WAITING 消息，强制激活。');
+        console.log('[SW-SKIP] 强制激活新SW');
         self.skipWaiting();
     }
 });
 
-
 // -----------------------------------------------------------------
-// 4. FETCH: 缓存优先策略 + 重定向 + 忽略查询参数
+// 4. FETCH: 路径修复 + 重定向 + 缓存优先
 // -----------------------------------------------------------------
-// sw.js (替换 FETCH 监听器)
-
 self.addEventListener('fetch', (event) => {
     const requestUrl = event.request.url;
-    let newUrl = null;
-    let intercepted = false;
-    
-    // --- 1. 现有重定向逻辑 ---
-    for (const [originalSegment, targetPath] of Object.entries(REDIRECT_MAP)) {
-        if (requestUrl.includes(originalSegment)) {
-            intercepted = true;
-            
-            if (originalSegment.startsWith('http')) {
-                newUrl = targetPath;
-            } else if (originalSegment.includes('pypi.org')) {
-                newUrl = new URL(targetPath, self.location.origin).toString();
-            } else {
-                const pathSuffix = requestUrl.substring(requestUrl.indexOf(originalSegment) + originalSegment.length);
-                newUrl = new URL(targetPath + pathSuffix, self.location.origin).toString();
-            }
+    let redirectedUrl = null;
+    const siteOrigin = self.location.origin; // 自动获取网站域名
+
+     if (requestUrl.includes(`${siteOrigin}/version`)) {
+         console.log(`[SW-FETCH] 🚫 跳过 /version 缓存，直接请求网络`);
+         return event.respondWith(fetch(event.request));
+     }
+
+    // 重定向逻辑
+    for (const [matchSegment, localPathPrefix] of REDIRECT_RULES) {
+        if (requestUrl.includes(matchSegment)) {
+            const pathSuffix = requestUrl.substring(requestUrl.indexOf(matchSegment) + matchSegment.length);
+            redirectedUrl = `${siteOrigin}${localPathPrefix}${pathSuffix}`;
             break;
         }
     }
-    
-    // --- 2. 离线缓存处理 (修正版) ---
-    
-    let cacheKeyRequest = intercepted ? new Request(newUrl) : event.request;
-    const url = new URL(cacheKeyRequest.url);
-    
-    // 针对根路径或首页请求，忽略所有查询参数
-    if (url.pathname === '/' || url.pathname === '/index.html') {
-        cacheKeyRequest = new Request('/'); 
-    } 
-    
+
+    // 日志输出
+    if (redirectedUrl) {
+        console.log(`[SW-FETCH] 🔄 已重定向: ${requestUrl} → ${redirectedUrl}`);
+    } else {
+        console.log(`[SW-FETCH] 🟢 未重定向: ${requestUrl}`);
+    }
+
+    // 缓存键与请求处理
+    const cacheKey = redirectedUrl ? redirectedUrl : event.request;
     event.respondWith(
-        caches.match(cacheKeyRequest).then(cachedResponse => {
-            
-            // A. 命中缓存：优先返回缓存结果
+        caches.match(cacheKey).then(cachedResponse => {
             if (cachedResponse) {
-                console.debug(`[SW-CACHE] 命中缓存: ${cacheKeyRequest.url}`);
+                console.debug(`[SW-CACHE] 📥 命中缓存: ${cacheKey}`);
                 return cachedResponse;
             }
 
-            // B. 缓存未命中：执行网络请求 (网络优先)
-            
-            // 确定要发起的网络请求对象
-            const networkRequest = intercepted ? new Request(newUrl) : event.request;
-            
-            console.debug(`[SW-NETWORK] 从网络获取: ${networkRequest.url}`);
+            const fetchTarget = redirectedUrl ? redirectedUrl : event.request;
+            const fetchOptions = redirectedUrl ? { mode: 'cors' } : {};
 
-            // 【关键修复】：不使用 'mode: 'cors''，因为 newUrl 是同源请求
-            return fetch(networkRequest) 
-                .then(networkResponse => {
-                    
-                    // 检查响应是否有效：只缓存 200 状态码
-                    if (networkResponse && networkResponse.status === 200) {
-                        const responseToCache = networkResponse.clone();
-                        caches.open(CACHE_NAME).then(cache => {
-                            // 使用确定的缓存键 (cacheKeyRequest) 存储响应
-                            cache.put(cacheKeyRequest, responseToCache); 
-                        });
-                    }
-                    
-                    return networkResponse;
-                })
-                .catch(error => {
-                     console.error(`[SW-OFFLINE] 网络请求失败: ${networkRequest.url} 无法从缓存或网络获取。`, error);
-                     return new Response("应用离线，且该资源未被缓存。", { status: 503, text: "Offline" });
-                });
+            return fetch(fetchTarget, fetchOptions).then(networkResponse => {
+                if (event.request.method === 'GET' && networkResponse.ok) {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then(cache => {
+                        cache.put(cacheKey, responseToCache);
+                    }).catch(err => {
+                        console.error(`[SW-CACHE] ❌ 回写缓存失败: ${cacheKey}`, err);
+                    });
+                }
+                return networkResponse;
+            }).catch(error => {
+                console.error(`[SW-OFFLINE] ❌ 网络请求失败: ${requestUrl}`, error);
+                return new Response("应用离线，且该资源未被缓存。", { status: 503, statusText: "Offline" });
+            });
         })
     );
 });

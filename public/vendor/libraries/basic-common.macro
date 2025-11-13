@@ -74,7 +74,7 @@
 
 
 
-*readkeyto_er0 ( defaultvalue=3333 ){   //*readkeyto_er0 ( defaultvalue=3333 )，读取键码至er0，可以指定er0的默认值，这里默认为3333
+*key->er0 ( defaultvalue=3333 ){   //*key->er0 ( defaultvalue=3333 )，读取键码至er0，可以指定er0的默认值，这里默认为3333
     $er8= [ #&_er0_& ]
     $er14= [< #&_jump_& - 000c >]
     $?readkeyto[er8]&x4q8
