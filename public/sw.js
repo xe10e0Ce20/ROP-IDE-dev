@@ -1,7 +1,7 @@
 // ----------------------------------------------------------------------
 // 【重要】请确保每次修改后更新此版本号
 // ----------------------------------------------------------------------
-const VERSION = 'v2.7.0'; // 已更新版本号，触发SW更新
+const VERSION = 'v2.7.7'; // 已更新版本号，触发SW更新
 const CACHE_NAME = `pwa-offline-cache-${VERSION}`;
 
 // 【关键优化1：最小化预缓存（仅2个文件，秒级安装）】
@@ -14,7 +14,7 @@ const MINIMAL_CACHE_ASSETS = [
 const DELAYED_CACHE_ASSETS = [
     // 本地应用资源
     '/compiler.py', 
-    '/assets/index-DH8Z11ee.js',
+    '/assets/index.js',
     '/vendor/pyscript/dist/core.css',
     '/vendor/pyscript/dist/core.js',
     '/vendor/marked/marked.min.js',

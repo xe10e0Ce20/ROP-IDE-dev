@@ -126,7 +126,7 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
 
             COMMENT: /(\/\/|;)[^\n]*/
             //终结符
-            BLOCK_CONTENT: /(.|\n)+?(?=@blockend)/
+            BLOCK_CONTENT: /(.|\n)+?(?=@blockend)/ | /(.|\n)+?(?=@end)/
             GGT_NAME: /\$[^ \t\r\n(]+/
             SPF_NAME: /\*[^ \t\r\n(]+/
             CPF_NAME: /![^ \t\r\n(]+/
@@ -404,7 +404,7 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
 
 
         pass1_grammar = r"""
-            start: (expr | offset_def | x_def | label_def)*
+            start: (expr | offset_def | x_def | label_def | rstoffst)*
             ?expr: term (( PLUS | MINUS ) term)*
             ?term: factor+
             ?factor: brackets | swap_endian | hex | LABEL_CALL | LABEL_CALL_RAW | overwrite
@@ -541,7 +541,7 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
                 return max_len if max_len % 2 == 0 else max_len + 1
 
         adr_grammar = r"""
-            start:(HEX_DATA | label_def | offset_def)*
+            start:(HEX_DATA | label_def | offset_def | rstoffst)*
             label_def: "@adr" "." CNAME
             HEX_DATA: /[0-9a-fA-F]{2}/
             offset_def: "@offset" "=" FOUR_BYTE
@@ -591,7 +591,7 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
             
 
         pass2_grammar = r"""
-            start: (expr | offset_def | x_def | label_def | overwrite)*
+            start: (expr | offset_def | x_def | label_def | overwrite | rstoffst)*
             ?expr: term (( PLUS | MINUS ) term)*
             ?term: factor+
             ?factor: brackets | swap_endian | hex | LABEL_CALL | LABEL_CALL_RAW

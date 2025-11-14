@@ -216,7 +216,7 @@ function buildCompletionWords(sourceCode, libraryFiles = {}, importedFileNames =
         '@adr.': { label: '@adr.', detail: '定义地址标签', type: assignCompletionType('@') },
         '@block.': { label: '@block.', detail: '开始一个代码块', type: assignCompletionType('@') },
         '@blockend': { label: '@blockend', detail: '结束代码块', type: assignCompletionType('@') },
-        '@end': { label: '@end', detail: '结束代码块，等效于@blockend', type: assignCompletionType('@') },
+        '@end': { label: '@end', detail: '结束代码块，等效于@end', type: assignCompletionType('@') },
         '@rstoffst': { label: '@rstoffst', detail: '从此处开始地址从0000开始重新计算', type: assignCompletionType('@') },
         '@offset=': { label: '@offset=', detail: '定义地址偏移量', type: assignCompletionType('@') },
         '@overwrite': { label: '@overwrite', detail: '覆写', type: assignCompletionType('@') }
@@ -1157,7 +1157,7 @@ async function checkAppVersion() {
 
         if (comparison > 0) {
             // 服务器版本 > 本地版本 (更新可用)
-            updateStatusElement.textContent = `更新 ${serverVersion}→${LOCAL_VERSION}`;
+            updateStatusElement.textContent = `更新 ${LOCAL_VERSION}→${serverVersion}`;
             forceUpdateBtn.style.backgroundColor = '#36cc9fff'; 
             forceUpdateBtn.disabled = false;
             console.log(`[Version] 新版本 ${serverVersion} 可用！`);
