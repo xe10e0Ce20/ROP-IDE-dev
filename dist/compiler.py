@@ -675,9 +675,12 @@ def compile_to_bytecode(source_code, libraries_js_proxy):
                 return result_str
             
             def LABEL_CALL(self, token):
-                label_name = token.value[1:]
-                label_value = int(self.label_map[label_name][0], 16)
-                return f"{label_value:04X}"
+                try:
+                    label_name = token.value[1:]
+                    label_value = int(self.label_map[label_name][0], 16)
+                    return f"{label_value:04X}"
+                except KeyError as e:
+                    raise Exception(f"Label undefined: {label_name}")
             
             def LABEL_CALL_RAW(self, token):
                 label_name = token.value[2:]
