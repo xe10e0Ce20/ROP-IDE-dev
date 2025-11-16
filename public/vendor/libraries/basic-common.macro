@@ -72,6 +72,11 @@
     %_xr8_%
 }
 
+*[er0]=er2? (tar, val){
+    $er0= [%_tar_%]
+    $er2= [%_val_%]
+    $[er0]=er2?
+}
 
 
 *key->er0 ( defaultvalue=3333 ){   //*key->er0 ( defaultvalue=3333 )，读取键码至er0，可以指定er0的默认值，这里默认为3333
@@ -128,6 +133,12 @@
 *clear_e3d4 (){ 
     $er0= 40xx
     $clear
+}
+
+*ranint (start, end){
+    $er0= [ %_start_% ]
+    $er2= [ %_end_% ]
+    $ranint
 }
 
 

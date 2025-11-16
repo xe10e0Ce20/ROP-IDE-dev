@@ -236,7 +236,7 @@ function buildCompletionWords(sourceCode, libraryFiles = {}, importedFileNames =
     
     // 正则
     const strictInstructionRegex = new RegExp(`^([$!*])([^\\s\\({${commentStart}]+)(.*?)(?:\\s*\\${commentStart}(.*))?$`, 'm');
-    const defRegex = new RegExp(`^\\s*(def)\\s+([$!*@]?)([\\w?]+)(.*?)(?:\\s*\\${commentStart}(.*))?$`, 'i');
+    const defRegex = new RegExp(`^\\s*(def)\\s+([$!*@])([^\\s\\({${commentStart}]+)(.*?)(?:\\s*\\${commentStart}(.*))?$`, 'i');
     // 【新增】匹配 @adr.xxx ; comment
     const adrLabelRegex = new RegExp(`^\\s*@adr\\.([\\w?]+)(.*?)(?:\\s*\\${commentStart}(.*))?$`, 'i'); 
     

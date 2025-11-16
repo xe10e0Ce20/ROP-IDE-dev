@@ -52,7 +52,7 @@ $memset {928fx0xx} //从er0处填入r2的内容，长度由sp指向的内存决�
 $memcat {d603x2xx} //从er0处开始向后遍历，直到遇到00，并向后追加er2处的内容
 $[er0]=r2 {d203x2xx}    //[er0]赋值为r2
 $[er8]+=er2&x8 {248fx0xx}   //[er8] += er2，并pop xr8
-$?[er0]=er2&e4? {686cx1xx}      
+$[er0]=er2? {1639x1xx}
 $?[er4]=er0&eax4 {720ex1xx}     //[er4]赋值为er0，并popea和xr4
 
 
@@ -67,7 +67,7 @@ $delay {6c91x0xx}
 $waitkeyto[er0] {48f7x0xx}
 $?readkeyto[er8]&x4q8 {54a8x2xx}
 
-
+$ranint {6039x1xx}
 
 $traverse_by_ea {a48ex0xx}
 $?er6qr8=[ea] {68c3x1xx}
