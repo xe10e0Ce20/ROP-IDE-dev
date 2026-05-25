@@ -12,8 +12,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 // ============================ 常量 ============================
 const STORAGE_KEY = 'ropIdeSourceCode';
 const LIBRARY_BASE_PATH = '/vendor/libraries/';
-const INITIAL_LIBRARIES = ['basic-991cnx-verc.ggt', 'basic-common.macro'];
-const LOCAL_VERSION = 'v6.3.0';               // 与 sw.js 同步
+const INITIAL_LIBRARIES = ['basic-991cnx-verc.ggt', 'basic-common.macro'];             // 与 sw.js 同步
 const VERSION_CHECK_URL = '/version';
 
 // ============================ 工具函数 ============================
@@ -648,35 +647,33 @@ initResizer() {
         }
     }
 
-    async forceUpdate() {
-        const confirmed = confirm('发现新版本！此操作将清除所有应用缓存并强制刷新，确认？');
-        if (!confirmed) return;
-        if ('serviceWorker' in navigator) {
-            try {
-                const registration = await navigator.serviceWorker.getRegistration();
-                if (registration) {
-                    registration.update();
-                    registration.addEventListener('updatefound', () => {
-                        const installingWorker = registration.installing;
-                        installingWorker.addEventListener('statechange', () => {
-                            if (installingWorker.state === 'installed') {
-                                installingWorker.postMessage({ type: 'SKIP_WAITING' });
-                            } else if (installingWorker.state === 'activated') {
-                                window.location.reload();
-                            }
-                        });
-                    });
-                } else {
-                    window.location.href = window.location.href.split('?')[0] + '?force_reload=' + Date.now();
+// main.js - RopIDE 类中
+
+async forceUpdate() {
+    const confirmed = confirm('发现新版本！此操作将清除所有应用缓存并强制刷新，确认？');
+    if (!confirmed) return;
+
+    // 第一步：通知可能存在的旧 SW 立即销毁
+    if ('serviceWorker' in navigator) {
+        try {
+            // 向所有 SW 发送销毁指令（sw.js 已支持接收消息）
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const reg of registrations) {
+                if (reg.active) {
+                    reg.active.postMessage({ type: 'DESTROY' });
                 }
-            } catch (err) {
-                console.error('强制更新失败:', err);
-                window.location.href = window.location.href.split('?')[0] + '?force_reload_fallback=' + Date.now();
+                // 直接注销
+                await reg.unregister();
             }
-        } else {
-            window.location.href = window.location.href.split('?')[0] + '?force_reload=' + Date.now();
+            console.log('所有旧 Service Worker 已注销');
+        } catch (e) {
+            console.warn('注销 SW 时出错，继续更新流程', e);
         }
     }
+
+    // 第二步：硬跳转，绕过浏览器缓存
+    window.location.href = window.location.href.split('?')[0] + '?force_update=' + Date.now();
+}
 
     // --------------- 教程模态 ---------------
     async showTutorial() {

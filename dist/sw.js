@@ -1,7 +1,7 @@
 // sw.js - Service Worker (改进版)
 
 // 与 main.js 中的 LOCAL_VERSION 保持同步（此处为 SW 自身版本）
-const SW_VERSION = 'v2.9.0';
+const SW_VERSION = 'v6.3.4';
 const CACHE_NAME = `pwa-offline-cache-${SW_VERSION}`;
 
 // 最小化预缓存（安装阶段立即缓存，保证秒级完成）
@@ -14,7 +14,7 @@ const PRECACHE_ASSETS = [
 const DELAYED_CACHE_ASSETS = [
     // === 应用核心 ===
     '/compiler.py',
-    '/assets/index-PWwk7m33.js',
+    '/assets/index-B5PXyHL-.js',
     '/vendor/pyscript/dist/core.css',
     '/vendor/pyscript/dist/core.js',
     '/vendor/marked/marked.min.js',
@@ -98,10 +98,17 @@ self.addEventListener('activate', event => {
 // -----------------------------------------------------------------
 // MESSAGE: 强制激活
 // -----------------------------------------------------------------
-self.addEventListener('message', event => {
-    if (event.data?.type === 'SKIP_WAITING') {
-        console.log('[SW] 收到 SKIP_WAITING 指令，立即激活');
-        self.skipWaiting();
+// sw.js 的 message 监听器替换为以下内容
+
+self.addEventListener('message', (event) => {
+    if (event.data) {
+        if (event.data.type === 'SKIP_WAITING') {
+            console.log('[SW] 收到 SKIP_WAITING 指令，立即激活');
+            self.skipWaiting();
+        } else if (event.data.type === 'DESTROY') {
+            console.log('[SW] 收到自毁指令，注销自身');
+            self.registration.unregister();
+        }
     }
 });
 
