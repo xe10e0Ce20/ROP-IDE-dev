@@ -1,5 +1,4 @@
 import js
-import json
 import re
 from lark import Lark, Transformer
 from typing import Any, Dict, cast

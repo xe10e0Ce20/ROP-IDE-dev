@@ -20,7 +20,11 @@
     $xr0= %_posx_% %_posy_% %_sizex_% %_sizey_%
     $render_bitmap
     $er0= [ %_pattern_% ]
-    $render_ddd4
+}
+
+*render_bitmap_cont (pattern) {    //不更改xr0进行render_bitmap
+    $render_bitmap
+    $er0= [ %_pattern_% ]
 }
 
 //延迟
@@ -53,9 +57,17 @@
     $qr0= [ %_len_% ] [ %_src_% ] [ %_tar_% ] [ %_er6_% ]
     $memcpy_special xx xx
 }
+*memcpy_new (tar, src, len, addr, er6=xxxx){    //*memcpy (目标, 源, 长度，跳转地址，er6赋值（可选）)
+    $qr8= [%_er6_%] [%_src_%] [%_tar_%] [%_addr_% - 000c]
+    $er0= [%_len_%]
+}
 *memset (tar, val, len){        //*memset (tar, val, len)，将[tar]指向的位置填充长度为len的val
     $xr0= [ %_tar_% ] %_val_% xx
     $memset [ %_len_% ]
+}
+*memzero (tar, len){        //*memset (tar, val, len)，将[tar]指向的位置填充长度为len的00
+    $xr0= [ %_tar_% ] [ %_len_% ]
+    $memzero
 }
 
 
@@ -135,12 +147,38 @@
     $clear
 }
 
-*ranint (start, end){
-    $er0= [ %_start_% ]
-    $er2= [ %_end_% ]
+
+
+*byte->num (byte, num){ //*byte->num (byte, num)，其中num指向num变量存储地址
+    $er2= [%_byte_%]
+    $er0= [%_num_%]
+    $byte->num
+}
+*ranint (min, max){ //*ranint (min, max)，min，max都是指向最小值和最大值的地址
+    $er0= [ %_min_% ]
+    $er2= [ %_max_% ]
     $ranint
 }
-
+*calc_formula (formula, result){ //*calc_formula (formula, result)
+    $er0= [%_formula_%]
+    $er2= [%_result_%]
+    $calc_func
+}
+*num->byte (num){ //*num->byte (num),输出到er0
+    $er0= [%_num_%]
+    $er12= [%_num_%]
+    $num->byte
+}
+*num->str (num, str){ //*num->str (num, str)
+    $er0= [%_num_%]
+    $er2= [%_str_%]
+    $num->str
+}
+*magic (src, tar){ //*magic (src, tar)
+    $xr8= 3280 3232
+    $er14= [%_src_%]
+    $er12= [%_tar_% - 1a]
+}
 
 
 //格式：
@@ -150,6 +188,18 @@
 //  #&_xxx_&    
 //}
 // 规范：如果依赖RT返回则在末尾增加?
+
+!ifzeror0? (xr0=xxxxxxxx){%%BODY%%}{    //14b12法
+    $er2= [ #&_end_& - #&_start_& ]
+    $er4= [ #&_start_& - 0008 ]
+    $er0=?r2*er0+er4?
+    $er14=er0&x0
+    %_xr0_%
+    $sp=er14&q8
+    @adr.&_start_&
+    %%BODY%%
+    @adr.&_end_&
+}
 
 !ifzeror2? () {%%BODY%%} {      //如果r2为0则执行后面代码块的内容
     $er0er4= [ #&_start_& - 003e ] [ #&_end_& - #&_start_& ]
@@ -181,8 +231,13 @@
     %%BODY%%
     @adr.&_end_&
 }
-
-!loop (tar, src, extra_len=0000) {%%BODY%%} {       //!loop (运行地址, 源地址, 额外长度=0000) {BODY} xyzst循环，可以指定循环结束后额外复制多少字节
+!loop (tar, src, extra_len=0000) {%%BODY%%} {       //!loop (运行地址, 源地址, 额外长度=0000) {BODY} 基于新指令的循环，可以指定循环结束后额外复制多少字节
+    @adr.&_start_&
+    %%BODY%%
+    *memcpy_new (tar, src, <##&_end_& - ##&_start_& + %_extralen_%>, #&_start_&)
+    @adr.&_end_&
+}
+!loop_legacy (tar, src, extra_len=0000) {%%BODY%%} {       //!loop (运行地址, 源地址, 额外长度=0000) {BODY} xyzst循环，可以指定循环结束后额外复制多少字节
     @adr.&_start_&
     %%BODY%%
     @adr.&_end_&
